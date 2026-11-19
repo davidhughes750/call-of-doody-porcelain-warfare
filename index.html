@@ -788,6 +788,40 @@ const bowl = {
     drainYOffset: 0
 };
 
+// Game State
+const state = {
+    screen: 'BRIEFING', // BRIEFING, PLAYING, DEBRIEF
+    levelIndex: 0,
+    playerName: '',
+    lastSubmittedId: null,
+    selectedDrink: 'water',
+    score: 0,
+    combo: 1.0,
+    comboTimer: 0,
+    bladder: 100,
+    maxBladder: 100,
+    splashback: 0,
+    timeLeft: 60,
+    flushUsed: false,
+    flushAnimTimer: 0,
+    isFiring: false,
+    isTouchAiming: false,
+    touchRawX: width * 0.5,
+    touchRawY: height * 0.5,
+    mouseX: width * 0.5,
+    mouseY: height * 0.45,
+    aimX: width * 0.5,
+    aimY: height * 0.45,
+    elapsed: 0,
+    stains: [],
+    floaters: [],
+    particles: [],
+    ripples: [],
+    floatingTexts: [],
+    initialTotalHP: 1,
+    screenShake: 0
+};
+
 function resizeCanvas() {
     const prevCx = bowl.cx;
     const prevCy = bowl.cy;
@@ -829,7 +863,7 @@ function resizeCanvas() {
     bowl.drainYOffset = bowl.waterRy * 0.25;
 
     // Proportionally reposition active stains & floaters on viewport resize/rotation
-    if (typeof state !== 'undefined' && prevRx > 0 && prevRy > 0 && bowl.innerRx > 0) {
+    if (prevRx > 0 && prevRy > 0 && bowl.innerRx > 0) {
         const scale = bowl.innerRx / prevRx;
         state.stains.forEach(s => {
             const nx = (s.x - prevCx) / prevRx;
@@ -854,40 +888,6 @@ function resizeCanvas() {
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-
-// Game State
-const state = {
-    screen: 'BRIEFING', // BRIEFING, PLAYING, DEBRIEF
-    levelIndex: 0,
-    playerName: '',
-    lastSubmittedId: null,
-    selectedDrink: 'water',
-    score: 0,
-    combo: 1.0,
-    comboTimer: 0,
-    bladder: 100,
-    maxBladder: 100,
-    splashback: 0,
-    timeLeft: 60,
-    flushUsed: false,
-    flushAnimTimer: 0,
-    isFiring: false,
-    isTouchAiming: false,
-    touchRawX: width * 0.5,
-    touchRawY: height * 0.5,
-    mouseX: width * 0.5,
-    mouseY: height * 0.45,
-    aimX: width * 0.5,
-    aimY: height * 0.45,
-    elapsed: 0,
-    stains: [],
-    floaters: [],
-    particles: [],
-    ripples: [],
-    floatingTexts: [],
-    initialTotalHP: 1,
-    screenShake: 0
-};
 
 // ============================================================================
 // 3B. PERSISTENT GLOBAL LEADERBOARD MANAGER (Cloud + LocalStorage Sync)
