@@ -186,6 +186,15 @@
     <div class="scanlines"></div>
     <div id="splash-warning-overlay"></div>
 
+    <!-- DRILL SERGEANT RADIO COMMS BANNER -->
+    <div id="drill-comms-banner" class="hidden pointer-events-none fixed left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-lg hud-panel border-amber-400/70 px-3 py-2 shadow-lg" style="top: max(5.4rem, calc(env(safe-area-inset-top) + 4.9rem));">
+        <div class="flex items-center justify-between gap-2 text-[10px] font-bold tracking-widest text-amber-400 uppercase mb-0.5">
+            <span>📻 GNY. SGT. HARTMAN [COMMS]</span>
+            <span class="text-emerald-400 animate-pulse-fast">● LIVE</span>
+        </div>
+        <div id="drill-comms-text" class="text-xs sm:text-sm text-slate-100 leading-snug font-bold"></div>
+    </div>
+
     <!-- TOP TACTICAL HUD -->
     <div id="hud-top" class="hidden absolute z-10 flex justify-between items-start gap-1.5 sm:gap-2 pointer-events-none" style="top: max(0.5rem, env(safe-area-inset-top)); left: max(0.5rem, env(safe-area-inset-left)); right: max(0.5rem, env(safe-area-inset-right));">
         <!-- Mission Info & Sanitation Progress -->
@@ -275,10 +284,13 @@
                     <h1 class="stencil-font text-2xl sm:text-4xl text-emerald-400 drop-shadow leading-none mt-0.5">CALL OF DOODY</h1>
                     <div class="text-[11px] sm:text-sm text-slate-300 tracking-widest">PORCELAIN WARFARE</div>
                 </div>
-                <div class="text-right shrink-0">
+                <div class="text-right shrink-0 flex flex-col items-end gap-1.5">
                     <span id="briefing-level-badge" class="inline-block bg-emerald-950 border border-emerald-400 text-emerald-300 px-2 sm:px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold">
                         MISSION 1 / 3
                     </span>
+                    <button id="btn-sgt-bark" type="button" class="tac-btn px-2 py-1 rounded text-[10px] sm:text-xs" title="Hear Gunnery Sgt. Hartman">
+                        📻 SGT. HARTMAN
+                    </button>
                 </div>
             </div>
 
@@ -657,9 +669,207 @@ class SoundFX {
             osc.stop(now + 0.32);
         });
     }
+
+    playRadioSquelch() {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+
+        // Short walkie-talkie static burst
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * 0.5;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1900;
+        filter.Q.value = 1.5;
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.25, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noise.start(now);
+        noise.stop(now + 0.08);
+
+        // Military radio click beep
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1800, now);
+        oscGain.gain.setValueAtTime(0.08, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+        osc.connect(oscGain);
+        oscGain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.05);
+    }
 }
 
 const sfx = new SoundFX();
+
+// ============================================================================
+// 1B. DRILL SERGEANT RADIO COMMS VOICE SYSTEM
+// ============================================================================
+const DrillSergeant = {
+    CLIPS: {
+        deploy_1: {
+            src: 'audio/deploy_1.mp3',
+            text: '"I am Gunnery Sergeant Hartman, your senior drill instructor! I want that toilet bowl so clean the Virgin Mary herself would be proud to go in there!"'
+        },
+        deploy_2: {
+            src: 'audio/deploy_2.mp3',
+            text: '"Listen up, maggots! Today you are no longer recruits! You are lean, mean, porcelain cleaning machines! Move it!"'
+        },
+        crust_1: {
+            src: 'audio/crust_1.mp3',
+            text: '"Outstanding, Private! Let me see your war face! Scrub that crust!"'
+        },
+        floater_1: {
+            src: 'audio/floater_1.mp3',
+            text: '"Holy dogshit! What is that in the basin?! Sink that floater down the drain, Private Pyle!"'
+        },
+        splash_warn: {
+            src: 'audio/splash_warn.mp3',
+            text: '"What is your major malfunction, numb-nuts?! Watch the rim, you\'re soaking your own khakis!"'
+        },
+        flush: {
+            src: 'audio/flush.mp3',
+            text: '"Pull the handle! Flush \'em straight to hell! Oorah!"'
+        },
+        victory: {
+            src: 'audio/victory.mp3',
+            text: '"Outstanding! Today you are no longer a maggot! That porcelain basin is inspection ready!"'
+        },
+        fail: {
+            src: 'audio/fail.mp3',
+            text: '"Did your parents have any children that lived?! Grab a toothbrush, you\'re on latrine duty!"'
+        }
+    },
+    audioCache: {},
+    currentAudio: null,
+    hideTimer: null,
+    lastSpokenAt: {},
+    barkIndex: 0,
+
+    preload() {
+        if (typeof Audio === 'undefined') return;
+        Object.keys(this.CLIPS).forEach(key => {
+            const audio = new Audio(this.CLIPS[key].src);
+            audio.preload = 'auto';
+            this.audioCache[key] = audio;
+        });
+    },
+
+    showBanner(text) {
+        const banner = document.getElementById('drill-comms-banner');
+        const label = document.getElementById('drill-comms-text');
+        if (!banner || !label) return;
+        label.textContent = text;
+        banner.classList.remove('hidden');
+        if (this.hideTimer) clearTimeout(this.hideTimer);
+        this.hideTimer = setTimeout(() => {
+            banner.classList.add('hidden');
+        }, 4200);
+    },
+
+    fallbackSpeech(text) {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window) || sfx.muted) return;
+        try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text.replace(/"/g, ''));
+            utter.rate = 1.12;
+            utter.pitch = 0.85;
+            window.speechSynthesis.speak(utter);
+        } catch {
+            // Ignore speech synthesis errors
+        }
+    },
+
+    stop() {
+        if (this.currentAudio) {
+            try {
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+            } catch {
+                // Ignore audio stop errors
+            }
+            this.currentAudio = null;
+        }
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+                window.speechSynthesis.cancel();
+            } catch {
+                // Ignore
+            }
+        }
+        const banner = document.getElementById('drill-comms-banner');
+        if (banner) banner.classList.add('hidden');
+        if (this.hideTimer) {
+            clearTimeout(this.hideTimer);
+            this.hideTimer = null;
+        }
+    },
+
+    speak(clipKey, { cooldownMs = 0 } = {}) {
+        const clip = this.CLIPS[clipKey];
+        if (!clip) return;
+
+        const now = Date.now();
+        if (cooldownMs > 0 && this.lastSpokenAt[clipKey] && (now - this.lastSpokenAt[clipKey]) < cooldownMs) {
+            return;
+        }
+        this.lastSpokenAt[clipKey] = now;
+        this.showBanner(clip.text);
+
+        if (sfx.muted) return;
+        sfx.init();
+        sfx.playRadioSquelch();
+
+        if (this.currentAudio) {
+            try {
+                this.currentAudio.pause();
+                this.currentAudio.currentTime = 0;
+            } catch {
+                // Ignore
+            }
+            this.currentAudio = null;
+        }
+
+        if (typeof Audio === 'undefined') {
+            this.fallbackSpeech(clip.text);
+            return;
+        }
+
+        const audio = this.audioCache[clipKey] || new Audio(clip.src);
+        this.audioCache[clipKey] = audio;
+        this.currentAudio = audio;
+        try {
+            audio.currentTime = 0;
+        } catch {
+            // Ignore seek before metadata ready
+        }
+        audio.onerror = () => this.fallbackSpeech(clip.text);
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => this.fallbackSpeech(clip.text));
+        }
+    },
+
+    playNextBark() {
+        const keys = Object.keys(this.CLIPS);
+        const key = keys[this.barkIndex % keys.length];
+        this.barkIndex += 1;
+        this.speak(key);
+    }
+};
 
 // ============================================================================
 // 2. GAME CONFIGURATION & LEVEL DEFINITIONS
@@ -804,6 +1014,8 @@ const state = {
     timeLeft: 60,
     flushUsed: false,
     flushAnimTimer: 0,
+    splashWarned: false,
+    deployCount: 0,
     isFiring: false,
     isTouchAiming: false,
     touchRawX: width * 0.5,
@@ -1335,6 +1547,7 @@ function startMission() {
     state.timeLeft = lvl.timeLimit;
     state.flushUsed = false;
     state.flushAnimTimer = 0;
+    state.splashWarned = false;
     state.combo = 1.0;
     state.comboTimer = 0;
     if (state.levelIndex === 0) {
@@ -1360,6 +1573,10 @@ function startMission() {
     document.getElementById('hud-bottom').classList.remove('hidden');
 
     updateHUD();
+
+    const deployClip = (state.deployCount % 2 === 0) ? 'deploy_1' : 'deploy_2';
+    state.deployCount += 1;
+    DrillSergeant.speak(deployClip);
 }
 
 function getSanitationPercent() {
@@ -1390,6 +1607,7 @@ function endMission(victory, reasonText) {
 
     if (victory) {
         sfx.playFanfare();
+        DrillSergeant.speak('victory');
         panel.style.borderColor = '#4ade80';
         stamp.textContent = '★ CITATION AWARDED ★';
         stamp.className = 'inline-block border-2 border-emerald-400 text-emerald-300 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase';
@@ -1405,6 +1623,7 @@ function endMission(victory, reasonText) {
         }
     } else {
         sfx.playFailAlarm();
+        DrillSergeant.speak('fail');
         panel.style.borderColor = '#ef4444';
         stamp.textContent = '☠ COURT MARTIAL ☠';
         stamp.className = 'inline-block border-2 border-red-500 text-red-400 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase';
@@ -1444,6 +1663,7 @@ function triggerTacticalFlush() {
     state.flushAnimTimer = 1.6;
     state.timeLeft = Math.max(1, state.timeLeft - 5);
     sfx.playFlush();
+    DrillSergeant.speak('flush');
 
     document.getElementById('btn-flush').disabled = true;
     document.getElementById('flush-status').textContent = 'DEPLETED (0/1)';
@@ -1618,6 +1838,7 @@ function update(dt) {
             state.score += pts;
             addFloatingText(f.x, f.y, `FLOATER SUNK! +${pts}`, '#fbbf24');
             state.ripples.push({ x: bowl.cx, y: drainY, r: 6, alpha: 0.9 });
+            DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
         }
     });
 
@@ -1666,6 +1887,7 @@ function update(dt) {
                     const pts = Math.round(300 * state.combo);
                     state.score += pts;
                     addFloatingText(f.x, f.y, `OBLITERATED! +${pts}`, '#4ade80');
+                    DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
                 }
                 break;
             }
@@ -1694,6 +1916,7 @@ function update(dt) {
                         if (s.type === 'crust') {
                             sfx.playCrunch();
                             state.screenShake = 4;
+                            DrillSergeant.speak('crust_1', { cooldownMs: 6000 });
                         } else {
                             sfx.playPop(480);
                         }
@@ -1741,6 +1964,11 @@ function update(dt) {
         }
 
         sfx.updateStreamSound(true, hitSurface, drink.pressure);
+
+        if (state.splashback >= 60 && !state.splashWarned) {
+            state.splashWarned = true;
+            DrillSergeant.speak('splash_warn');
+        }
 
         // Check Splashback Failure
         if (state.splashback >= 100) {
@@ -2328,6 +2556,9 @@ document.querySelectorAll('.drink-card').forEach(card => {
 
 // UI Action Buttons
 document.getElementById('btn-deploy').addEventListener('click', startMission);
+document.getElementById('btn-sgt-bark').addEventListener('click', () => {
+    DrillSergeant.playNextBark();
+});
 document.getElementById('btn-refresh-lb').addEventListener('click', () => {
     sfx.init();
     sfx.playPop(600);
@@ -2339,6 +2570,9 @@ document.getElementById('btn-mute').addEventListener('click', () => {
     sfx.init();
     sfx.muted = !sfx.muted;
     document.getElementById('btn-mute').textContent = sfx.muted ? '🔇' : '🔊';
+    if (sfx.muted) {
+        DrillSergeant.stop();
+    }
 });
 
 document.getElementById('btn-retry').addEventListener('click', () => {
@@ -2352,6 +2586,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
 
 // Initialize on Window Load
 window.onload = function () {
+    DrillSergeant.preload();
     const savedName = LeaderboardManager.getSavedCallsign();
     if (savedName) {
         nameInputEl.value = savedName;
