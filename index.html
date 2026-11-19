@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Call of Doody: Porcelain Warfare</title>
+    <!-- Tactical Military Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --hud-green: #4ade80;
+            --hud-amber: #fbbf24;
+            --hud-red: #ef4444;
+            --hud-bg: rgba(15, 23, 18, 0.88);
+            --hud-border: rgba(74, 222, 128, 0.45);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b110e;
+            font-family: 'Share Tech Mono', monospace;
+            color: #e2e8f0;
+        }
+
+        .stencil-font {
+            font-family: 'Black Ops One', cursive;
+            letter-spacing: 0.06em;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: none;
+            touch-action: none;
+        }
+
+        /* CRT Scanline & Vignette Overlay for Tactical Feel */
+        .tactical-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 55%, rgba(0, 12, 5, 0.65) 100%);
+            z-index: 5;
+        }
+
+        .scanlines {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.18) 50%
+            );
+            background-size: 100% 4px;
+            z-index: 6;
+        }
+
+        /* HUD Panels */
+        .hud-panel {
+            background: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7), inset 0 0 8px rgba(74, 222, 128, 0.12);
+            backdrop-filter: blur(4px);
+            border-radius: 6px;
+        }
+
+        /* Custom Tactical Buttons */
+        .tac-btn {
+            background: linear-gradient(180deg, #2d3b2e 0%, #1a241b 100%);
+            border: 1px solid #4ade80;
+            color: #4ade80;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: all 0.15s ease;
+            box-shadow: 0 3px 0 #0f1710, 0 0 10px rgba(74, 222, 128, 0.2);
+            cursor: pointer;
+        }
+
+        .tac-btn:hover:not(:disabled) {
+            background: linear-gradient(180deg, #3c523e 0%, #243326 100%);
+            box-shadow: 0 3px 0 #0f1710, 0 0 18px rgba(74, 222, 128, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .tac-btn:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f1710;
+        }
+
+        .tac-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            border-color: #64748b;
+            color: #94a3b8;
+            box-shadow: none;
+        }
+
+        .tac-btn-danger {
+            background: linear-gradient(180deg, #451a1a 0%, #290e0e 100%);
+            border-color: #ef4444;
+            color: #fca5a5;
+            box-shadow: 0 3px 0 #170505, 0 0 10px rgba(239, 68, 68, 0.25);
+        }
+
+        .tac-btn-danger:hover:not(:disabled) {
+            background: linear-gradient(180deg, #632323 0%, #3b1313 100%);
+            box-shadow: 0 3px 0 #170505, 0 0 16px rgba(239, 68, 68, 0.55);
+        }
+
+        .drink-card {
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 20, 0.85);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .drink-card:hover {
+            border-color: #fbbf24;
+            transform: translateY(-2px);
+        }
+
+        .drink-card.selected {
+            border: 2px solid #4ade80;
+            background: rgba(22, 46, 32, 0.92);
+            box-shadow: 0 0 16px rgba(74, 222, 128, 0.35);
+        }
+
+        /* Splashback Screen Blood/Water Vignette Warning */
+        #splash-warning-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            border: 0px solid rgba(250, 204, 21, 0.0);
+            box-shadow: inset 0 0 0px rgba(239, 68, 68, 0);
+            transition: box-shadow 0.15s ease;
+            z-index: 7;
+        }
+
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 0.8s infinite;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Main Simulation Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Visual Atmosphere Overlays -->
+    <div class="tactical-overlay"></div>
+    <div class="scanlines"></div>
+    <div id="splash-warning-overlay"></div>
+
+    <!-- TOP TACTICAL HUD -->
+    <div id="hud-top" class="hidden absolute top-2 left-2 right-2 z-10 flex flex-wrap justify-between items-start gap-2 pointer-events-none">
+        <!-- Mission Info & Sanitation Progress -->
+        <div class="hud-panel px-3 py-2 flex-1 min-w-[210px] max-w-sm">
+            <div class="flex justify-between items-center text-xs text-emerald-400 mb-1">
+                <span id="hud-mission-name" class="font-bold tracking-wider uppercase">OP: TACO TUESDAY</span>
+                <span id="hud-timer" class="text-amber-300 font-bold text-sm">01:00</span>
+            </div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300">BOWL SANITATION</span>
+                <span id="hud-sanitation-text" class="text-emerald-400 font-bold">0%</span>
+            </div>
+            <div class="w-full h-3 bg-slate-900 rounded overflow-hidden border border-slate-700">
+                <div id="hud-sanitation-bar" class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-150" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between items-center mt-1.5 text-[11px] text-slate-400">
+                <span id="hud-targets-left">HOSTILES: 0</span>
+                <span id="hud-loadout-badge" class="text-amber-300 uppercase">H2O STD</span>
+            </div>
+        </div>
+
+        <!-- Center Score & Combo -->
+        <div class="hud-panel px-4 py-2 text-center min-w-[140px]">
+            <div class="text-[10px] text-slate-400 tracking-widest">TACTICAL SCORE</div>
+            <div id="hud-score" class="stencil-font text-xl sm:text-2xl text-amber-400 leading-tight">00000</div>
+            <div id="hud-combo" class="text-xs font-bold text-emerald-400">COMBO 1.0x</div>
+        </div>
+
+        <!-- Audio Mute & Tactical Flush Button -->
+        <div class="hud-panel px-3 py-2 flex items-center gap-2 pointer-events-auto">
+            <button id="btn-flush" class="tac-btn px-3 py-2 rounded text-xs sm:text-sm flex flex-col items-center leading-tight" title="Clears loose skids & pushes floaters (-5s)">
+                <span>🚽 TACTICAL FLUSH</span>
+                <span id="flush-status" class="text-[10px] text-amber-300">READY (1/1)</span>
+            </button>
+            <button id="btn-mute" class="tac-btn px-2.5 py-2 rounded text-sm" title="Toggle Audio">
+                🔊
+            </button>
+        </div>
+    </div>
+
+    <!-- BOTTOM TACTICAL GAUGES -->
+    <div id="hud-bottom" class="hidden absolute bottom-3 left-3 right-3 z-10 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-2 pointer-events-none">
+        <!-- Left: Bladder Tank (Ammo) -->
+        <div class="hud-panel px-3 py-2 w-full sm:w-64">
+            <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-amber-300 font-bold tracking-wider">⚡ BLADDER TANK</span>
+                <span id="hud-bladder-text" class="text-amber-300 font-bold">100%</span>
+            </div>
+            <div class="w-full h-3.5 bg-slate-900 rounded overflow-hidden border border-amber-500/40">
+                <div id="hud-bladder-bar" class="h-full bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-300 transition-all duration-75" style="width: 100%"></div>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
+                <span>HOLD LMB / SPACE: FIRE</span>
+                <span id="hud-pressure-lbl">PRESSURE: 1.0x</span>
+            </div>
+        </div>
+
+        <!-- Center Hint -->
+        <div class="hidden md:block hud-panel px-3 py-1.5 text-[11px] text-slate-300 text-center">
+            AIM AT STAINS • AVOID WHITE RIM & DIRECT WATER SPLASHBACK
+        </div>
+
+        <!-- Right: Splashback Meter (Danger/Health) -->
+        <div class="hud-panel px-3 py-2 w-full sm:w-64">
+            <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-red-400 font-bold tracking-wider">☣ SPLASHBACK METER</span>
+                <span id="hud-splash-text" class="text-red-400 font-bold">0%</span>
+            </div>
+            <div class="w-full h-3.5 bg-slate-900 rounded overflow-hidden border border-red-500/40">
+                <div id="hud-splash-bar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-red-600 transition-all duration-75" style="width: 0%"></div>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 text-right">
+                100% = PANTS SOAKED (MISSION FAIL)
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: MISSION BRIEFING & TACTICAL HYDRATION LOADOUT -->
+    <div id="modal-briefing" class="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 overflow-y-auto">
+        <div class="hud-panel max-w-2xl w-full p-5 sm:p-6 border-2 border-emerald-500/60 my-auto">
+            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-3 mb-4">
+                <div>
+                    <div class="text-xs text-amber-400 tracking-widest uppercase">TOP SECRET // SANITATION COMMAND</div>
+                    <h1 class="stencil-font text-2xl sm:text-4xl text-emerald-400 drop-shadow">CALL OF DOODY</h1>
+                    <div class="text-xs sm:text-sm text-slate-300 tracking-widest">PORCELAIN WARFARE</div>
+                </div>
+                <div class="text-right">
+                    <span id="briefing-level-badge" class="inline-block bg-emerald-950 border border-emerald-400 text-emerald-300 px-2.5 py-1 rounded text-xs font-bold">
+                        MISSION 1 / 3
+                    </span>
+                </div>
+            </div>
+
+            <!-- Mission Intel Box -->
+            <div class="bg-slate-950/80 border border-slate-700 rounded p-3 mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <h2 id="briefing-title" class="stencil-font text-lg text-amber-400">OP: TACO TUESDAY</h2>
+                    <span id="briefing-env" class="text-xs text-emerald-400 uppercase">[STANDARD BATHROOM]</span>
+                </div>
+                <p id="briefing-desc" class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-2">
+                    Intel reports fresh Surface Skids and a rogue Floater inside the primary porcelain basin. Neutralize all organic hostiles before your tank runs dry.
+                </p>
+                <div class="grid grid-cols-3 gap-2 text-[11px] pt-2 border-t border-slate-800 text-slate-300">
+                    <div>🟤 <strong class="text-amber-300">SKIDS:</strong> Fast dissolve</div>
+                    <div>🪨 <strong class="text-orange-400">CRUST:</strong> Heavy armor</div>
+                    <div>💩 <strong class="text-yellow-500">FLOATER:</strong> Push to drain</div>
+                </div>
+            </div>
+
+            <!-- Tactical Hydration Selector -->
+            <div class="mb-5">
+                <div class="text-xs text-emerald-400 font-bold tracking-wider mb-2 uppercase">
+                    1. SELECT TACTICAL HYDRATION LOADOUT:
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="drink-selector">
+                    <div class="drink-card selected rounded p-2.5 flex flex-col justify-between" data-drink="water">
+                        <div>
+                            <div class="text-lg mb-0.5">💧</div>
+                            <div class="font-bold text-xs text-sky-300">TAP WATER</div>
+                            <div class="text-[10px] text-slate-400 mt-1">Standard issue. Steady aim, balanced pressure & capacity.</div>
+                        </div>
+                        <div class="text-[10px] text-emerald-400 mt-2 font-bold">ACC: ★★★★★</div>
+                    </div>
+
+                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="coffee">
+                        <div>
+                            <div class="text-lg mb-0.5">☕</div>
+                            <div class="font-bold text-xs text-amber-400">BLACK COFFEE</div>
+                            <div class="text-[10px] text-slate-400 mt-1">+50% Hydro-Pressure for heavy crust. High caffeine jitter!</div>
+                        </div>
+                        <div class="text-[10px] text-amber-300 mt-2 font-bold">PWR: ★★★★★</div>
+                    </div>
+
+                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="energy">
+                        <div>
+                            <div class="text-lg mb-0.5">⚡</div>
+                            <div class="font-bold text-xs text-lime-400">NITRO ENERGY</div>
+                            <div class="text-[10px] text-slate-400 mt-1">Neon tracer stream + 2.0x armor shred. Fast drain rate.</div>
+                        </div>
+                        <div class="text-[10px] text-lime-400 mt-2 font-bold">TRACER: NEON</div>
+                    </div>
+
+                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="beer">
+                        <div>
+                            <div class="text-lg mb-0.5">🍺</div>
+                            <div class="font-bold text-xs text-yellow-300">LIGHT BEER</div>
+                            <div class="text-[10px] text-slate-400 mt-1">+65% Bladder Tank capacity. Heavy drunken aim sway!</div>
+                        </div>
+                        <div class="text-[10px] text-yellow-300 mt-2 font-bold">TANK: ★★★★★</div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-deploy" class="tac-btn w-full py-3.5 rounded stencil-font text-lg sm:text-xl tracking-wider">
+                🎯 DEPLOY TO PORCELAIN
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: MISSION DEBRIEF (VICTORY / COURT MARTIAL) -->
+    <div id="modal-debrief" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+        <div class="hud-panel max-w-md w-full p-6 border-2 text-center" id="debrief-panel">
+            <div id="debrief-stamp" class="inline-block border-2 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase">
+                MISSION REPORT
+            </div>
+            <h2 id="debrief-title" class="stencil-font text-3xl sm:text-4xl mb-2">BOWL SANITIZED</h2>
+            <p id="debrief-reason" class="text-xs sm:text-sm text-slate-300 mb-4">
+                All hostiles neutralized. Janitorial command commends your precision.
+            </p>
+
+            <div class="bg-slate-950/90 border border-slate-800 rounded p-3 mb-5 text-left space-y-1.5 text-xs sm:text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">BOWL SANITATION:</span>
+                    <span id="stat-sanitation" class="font-bold text-emerald-400">100%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">RESERVE FLUID BONUS:</span>
+                    <span id="stat-fluid-bonus" class="font-bold text-amber-300">+0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">SPLASHBACK PENALTY:</span>
+                    <span id="stat-splash-penalty" class="font-bold text-red-400">-0</span>
+                </div>
+                <div class="flex justify-between border-t border-slate-800 pt-1.5 text-base">
+                    <span class="text-slate-200 font-bold">TOTAL SCORE:</span>
+                    <span id="stat-total-score" class="stencil-font text-amber-400">0</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2.5">
+                <button id="btn-retry" class="tac-btn-danger tac-btn flex-1 py-3 rounded stencil-font text-base">
+                    ↻ RETRY MISSION
+                </button>
+                <button id="btn-next-level" class="tac-btn flex-1 py-3 rounded stencil-font text-base">
+                    NEXT MISSION ➔
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * CALL OF DOODY: PORCELAIN WARFARE
+ * Single-File HTML5 Canvas Game + Procedural Web Audio Engine
+ */
+
+// ============================================================================
+// 1. PROCEDURAL WEB AUDIO ENGINE (No external files needed)
+// ============================================================================
+class SoundFX {
+    constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.streamGain = null;
+        this.streamFilter = null;
+        this.isStreaming = false;
+    }
+
+    init() {
+        if (!this.ctx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContext();
+            this.setupStreamNodes();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    setupStreamNodes() {
+        // Create continuous pink/white noise buffer for liquid stream hiss
+        const bufferSize = this.ctx.sampleRate * 2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            b0 = 0.99765 * b0 + white * 0.0990460;
+            b1 = 0.96300 * b1 + white * 0.2965164;
+            b2 = 0.57000 * b2 + white * 1.0526913;
+            data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.12;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        this.streamFilter = this.ctx.createBiquadFilter();
+        this.streamFilter.type = 'bandpass';
+        this.streamFilter.frequency.value = 1100;
+        this.streamFilter.Q.value = 1.4;
+
+        this.streamGain = this.ctx.createGain();
+        this.streamGain.gain.value = 0;
+
+        noise.connect(this.streamFilter);
+        this.streamFilter.connect(this.streamGain);
+        this.streamGain.connect(this.ctx.destination);
+        noise.start();
+    }
+
+    updateStreamSound(active, surfaceType, pressure) {
+        if (!this.ctx || this.muted) {
+            if (this.streamGain && this.ctx) {
+                this.streamGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
+            }
+            return;
+        }
+        const now = this.ctx.currentTime;
+        if (active) {
+            let targetFreq = 1200;
+            let targetGain = 0.22 * Math.min(1.4, pressure);
+            if (surfaceType === 'water') {
+                targetFreq = 580 + Math.random() * 140; // Bubbly water splash pitch
+                targetGain = 0.34;
+            } else if (surfaceType === 'rim') {
+                targetFreq = 2100 + Math.random() * 250; // Sharp porcelain ping hiss
+                targetGain = 0.28;
+            } else if (surfaceType === 'stain') {
+                targetFreq = 950 + Math.random() * 120; // Scrubbing sound
+                targetGain = 0.26;
+            }
+            this.streamFilter.frequency.setTargetAtTime(targetFreq, now, 0.04);
+            this.streamGain.gain.setTargetAtTime(targetGain, now, 0.04);
+        } else {
+            this.streamGain.gain.setTargetAtTime(0, now, 0.05);
+        }
+    }
+
+    playPop(pitch = 400) {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(pitch, now);
+        osc.frequency.exponentialRampToValueAtTime(pitch * 2.1, now + 0.09);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.09);
+    }
+
+    playCrunch() {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.14);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.14);
+    }
+
+    playFlush() {
+        if (!this.ctx || this.muted) return;
+        const now = this.ctx.currentTime;
+        // Swirl low-pass sweep
+        const bufferSize = this.ctx.sampleRate * 1.8;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.Q.value = 3.0;
+        filter.frequency.setValueAtTime(220, now);
+        filter.frequency.exponentialRampToValueAtTime(850, now + 0.7);
+        filter.frequency.exponentialRampToValueAtTime(140, now + 1.7);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.45, now + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.75);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        noise.start(now);
+        noise.stop(now + 1.8);
+    }
+
+    playFanfare() {
+        if (!this.ctx || this.muted) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+            const now = this.ctx.currentTime + idx * 0.11;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.22, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.36);
+        });
+    }
+
+    playFailAlarm() {
+        if (!this.ctx || this.muted) return;
+        const notes = [240, 175];
+        notes.forEach((freq, idx) => {
+            const now = this.ctx.currentTime + idx * 0.22;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.22, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.32);
+        });
+    }
+}
+
+const sfx = new SoundFX();
+
+// ============================================================================
+// 2. GAME CONFIGURATION & LEVEL DEFINITIONS
+// ============================================================================
+const DRINK_LOADOUTS = {
+    water: {
+        name: 'TAP WATER',
+        badge: 'H2O STD',
+        pressure: 1.0,
+        capacity: 100,
+        drainRate: 11.5,
+        swayAmp: 7,
+        swayFreq: 2.2,
+        jitter: 1.2,
+        colorCore: '#fef08a',
+        colorGlow: 'rgba(250, 204, 21, 0.55)',
+        splashColor: '#fde047'
+    },
+    coffee: {
+        name: 'BLACK COFFEE',
+        badge: 'CAFFEINE HI-PWR',
+        pressure: 1.55,
+        capacity: 95,
+        drainRate: 13.0,
+        swayAmp: 9,
+        swayFreq: 3.5,
+        jitter: 9.5, // Intense coffee shakes
+        colorCore: '#f59e0b',
+        colorGlow: 'rgba(217, 119, 6, 0.6)',
+        splashColor: '#fbbf24'
+    },
+    energy: {
+        name: 'NITRO ENERGY',
+        badge: 'NEON TRACER 2X',
+        pressure: 2.0,
+        capacity: 90,
+        drainRate: 15.5,
+        swayAmp: 8,
+        swayFreq: 2.8,
+        jitter: 4.0,
+        colorCore: '#a3e635',
+        colorGlow: 'rgba(132, 204, 22, 0.85)',
+        splashColor: '#bef264'
+    },
+    beer: {
+        name: 'LIGHT BEER',
+        badge: 'MEGA TANK // SWAY',
+        pressure: 1.1,
+        capacity: 165,
+        drainRate: 11.0,
+        swayAmp: 34, // Heavy drunken sinusoidal sway
+        swayFreq: 1.75,
+        jitter: 2.5,
+        colorCore: '#fef9c3',
+        colorGlow: 'rgba(253, 224, 71, 0.5)',
+        splashColor: '#fef08a'
+    }
+};
+
+const LEVELS = [
+    {
+        id: 1,
+        name: 'OP: TACO TUESDAY',
+        env: 'SUBURBAN BATHROOM',
+        tileColorA: '#cbd5e1',
+        tileColorB: '#94a3b8',
+        porcelainTint: '#ffffff',
+        waterTint: 'rgba(56, 189, 248, 0.36)',
+        timeLimit: 60,
+        skids: 8,
+        crusts: 2,
+        floaters: 1,
+        desc: 'Recon shows moderate Surface Skids from last night’s Taco Tuesday, two Baked-On Crust clusters on the upper slope, and one rogue Floater in the basin.'
+    },
+    {
+        id: 2,
+        name: 'OP: CURRY NIGHT',
+        env: 'APARTMENT SUITE',
+        tileColorA: '#d6d3d1',
+        tileColorB: '#a8a29e',
+        porcelainTint: '#fefce8',
+        waterTint: 'rgba(234, 179, 8, 0.28)',
+        timeLimit: 70,
+        skids: 11,
+        crusts: 5,
+        floaters: 2,
+        desc: 'Heavy spice fallout! Thick Baked-On Crust formations have hardened along the inner porcelain wall. Recommend Black Coffee or Nitro Energy for armor penetration.'
+    },
+    {
+        id: 3,
+        name: 'OP: FESTIVAL PORTA-POTTY',
+        env: 'HAZMAT WARZONE',
+        tileColorA: '#475569',
+        tileColorB: '#334155',
+        porcelainTint: '#e2e8f0',
+        waterTint: 'rgba(37, 99, 235, 0.58)', // Classic blue porta-potty chemical water
+        timeLimit: 85,
+        skids: 14,
+        crusts: 7,
+        floaters: 3,
+        desc: 'CRITICAL BIO-HAZARD! Maximum stain density inside a chemical blue basin. Watch your Splashback Meter—blue chemical splashback is lethal!'
+    }
+];
+
+// ============================================================================
+// 3. CANVAS & STATE MANAGEMENT
+// ============================================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let width = window.innerWidth;
+let height = window.innerHeight;
+
+// Toilet Bowl Geometry (computed dynamically on resize)
+const bowl = {
+    cx: 0,
+    cy: 0,
+    outerRx: 0,
+    outerRy: 0,
+    innerRx: 0,
+    innerRy: 0,
+    waterRx: 0,
+    waterRy: 0,
+    drainRx: 0,
+    drainRy: 0,
+    drainYOffset: 0
+};
+
+function resizeCanvas() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Center bowl slightly above vertical center to leave room for bottom HUD & stream origin
+    bowl.cx = width * 0.5;
+    bowl.cy = height * 0.47;
+
+    const minDim = Math.min(width * 0.88, height * 0.74);
+    bowl.outerRx = minDim * 0.44;
+    bowl.outerRy = minDim * 0.52;
+
+    bowl.innerRx = bowl.outerRx * 0.77;
+    bowl.innerRy = bowl.outerRy * 0.78;
+
+    bowl.waterRx = bowl.innerRx * 0.54;
+    bowl.waterRy = bowl.innerRy * 0.52;
+
+    bowl.drainRx = bowl.waterRx * 0.36;
+    bowl.drainRy = bowl.waterRy * 0.34;
+    bowl.drainYOffset = bowl.waterRy * 0.25;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Game State
+const state = {
+    screen: 'BRIEFING', // BRIEFING, PLAYING, DEBRIEF
+    levelIndex: 0,
+    selectedDrink: 'water',
+    score: 0,
+    combo: 1.0,
+    comboTimer: 0,
+    bladder: 100,
+    maxBladder: 100,
+    splashback: 0,
+    timeLeft: 60,
+    flushUsed: false,
+    flushAnimTimer: 0,
+    isFiring: false,
+    mouseX: width * 0.5,
+    mouseY: height * 0.45,
+    aimX: width * 0.5,
+    aimY: height * 0.45,
+    elapsed: 0,
+    stains: [],
+    floaters: [],
+    particles: [],
+    ripples: [],
+    floatingTexts: [],
+    initialTotalHP: 1,
+    screenShake: 0
+};
+
+// ============================================================================
+// 4. TARGET GENERATION & GEOMETRY HELPERS
+// ============================================================================
+function pointInEllipse(px, py, cx, cy, rx, ry) {
+    const dx = (px - cx) / rx;
+    const dy = (py - cy) / ry;
+    return (dx * dx + dy * dy) <= 1.0;
+}
+
+function getNormalizedBowlRadius(px, py) {
+    const dx = (px - bowl.cx) / bowl.innerRx;
+    const dy = (py - bowl.cy) / bowl.innerRy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function spawnLevelEntities(level) {
+    state.stains = [];
+    state.floaters = [];
+    state.particles = [];
+    state.ripples = [];
+    state.floatingTexts = [];
+
+    // Helper to pick random position on the porcelain slope (between water edge and inner rim)
+    function randomSlopePos() {
+        for (let attempt = 0; attempt < 40; attempt++) {
+            const angle = Math.random() * Math.PI * 2;
+            // Normalized radius between 0.58 (just outside water) and 0.92 (just under rim)
+            const rNorm = 0.58 + Math.random() * 0.34;
+            const x = bowl.cx + Math.cos(angle) * bowl.innerRx * rNorm;
+            const y = bowl.cy + Math.sin(angle) * bowl.innerRy * rNorm;
+
+            // Ensure not overlapping existing stains too closely
+            const tooClose = state.stains.some(s => Math.hypot(s.x - x, s.y - y) < 34);
+            if (!tooClose) return { x, y };
+        }
+        const angle = Math.random() * Math.PI * 2;
+        return {
+            x: bowl.cx + Math.cos(angle) * bowl.innerRx * 0.74,
+            y: bowl.cy + Math.sin(angle) * bowl.innerRy * 0.74
+        };
+    }
+
+    // 1. Spawn Surface Skids (Grunts)
+    for (let i = 0; i < level.skids; i++) {
+        const pos = randomSlopePos();
+        const radius = 15 + Math.random() * 11;
+        const maxHp = 28 + Math.random() * 14;
+        // Generate organic blob vertices
+        const blobs = [];
+        const count = 4 + Math.floor(Math.random() * 3);
+        for (let b = 0; b < count; b++) {
+            blobs.push({
+                ox: (Math.random() - 0.5) * radius * 0.85,
+                oy: (Math.random() - 0.5) * radius * 0.85,
+                r: radius * (0.45 + Math.random() * 0.45)
+            });
+        }
+        state.stains.push({
+            type: 'skid',
+            x: pos.x,
+            y: pos.y,
+            radius,
+            hp: maxHp,
+            maxHp,
+            blobs,
+            angle: Math.random() * Math.PI * 2
+        });
+    }
+
+    // 2. Spawn Baked-On Crust (Heavy Armor)
+    for (let i = 0; i < level.crusts; i++) {
+        const pos = randomSlopePos();
+        const radius = 21 + Math.random() * 9;
+        const maxHp = 95 + level.id * 20;
+        const blobs = [];
+        for (let b = 0; b < 6; b++) {
+            const a = (b / 6) * Math.PI * 2;
+            blobs.push({
+                ox: Math.cos(a) * radius * 0.35,
+                oy: Math.sin(a) * radius * 0.35,
+                r: radius * 0.65
+            });
+        }
+        state.stains.push({
+            type: 'crust',
+            x: pos.x,
+            y: pos.y,
+            radius,
+            hp: maxHp,
+            maxHp,
+            blobs,
+            angle: Math.random() * Math.PI * 2
+        });
+    }
+
+    // 3. Spawn The Floater (Moving targets in water basin)
+    for (let i = 0; i < level.floaters; i++) {
+        const angle = (i / Math.max(1, level.floaters)) * Math.PI * 2 + 0.6;
+        const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.48);
+        const fy = bowl.cy - bowl.waterRy * 0.25 + Math.sin(angle) * (bowl.waterRy * 0.35);
+        state.floaters.push({
+            x: fx,
+            y: fy,
+            vx: 0,
+            vy: 0,
+            radius: 15,
+            angle: Math.random() * Math.PI,
+            hp: 80, // Can either be pushed to drain OR broken down
+            maxHp: 80,
+            bobPhase: Math.random() * Math.PI * 2,
+            sunk: false
+        });
+    }
+
+    // Calculate total sanitize weight
+    let total = 0;
+    state.stains.forEach(s => total += s.maxHp);
+    state.floaters.forEach(f => total += f.maxHp);
+    state.initialTotalHP = Math.max(1, total);
+}
+
+// ============================================================================
+// 5. START, DEPLOY & END MISSION FLOW
+// ============================================================================
+function openBriefing(levelIdx) {
+    state.levelIndex = levelIdx;
+    state.screen = 'BRIEFING';
+    state.isFiring = false;
+    sfx.updateStreamSound(false, 'none', 1);
+
+    const lvl = LEVELS[levelIdx];
+    document.getElementById('briefing-level-badge').textContent = `MISSION ${lvl.id} / ${LEVELS.length}`;
+    document.getElementById('briefing-title').textContent = lvl.name;
+    document.getElementById('briefing-env').textContent = `[${lvl.env}]`;
+    document.getElementById('briefing-desc').textContent = lvl.desc;
+
+    document.getElementById('modal-briefing').classList.remove('hidden');
+    document.getElementById('modal-debrief').classList.add('hidden');
+    document.getElementById('hud-top').classList.add('hidden');
+    document.getElementById('hud-bottom').classList.add('hidden');
+}
+
+function startMission() {
+    sfx.init();
+    const lvl = LEVELS[state.levelIndex];
+    const drink = DRINK_LOADOUTS[state.selectedDrink];
+
+    state.screen = 'PLAYING';
+    state.maxBladder = drink.capacity;
+    state.bladder = drink.capacity;
+    state.splashback = 0;
+    state.timeLeft = lvl.timeLimit;
+    state.flushUsed = false;
+    state.flushAnimTimer = 0;
+    state.combo = 1.0;
+    state.comboTimer = 0;
+    if (state.levelIndex === 0) {
+        state.score = 0;
+    }
+
+    spawnLevelEntities(lvl);
+
+    // Update UI Badges
+    document.getElementById('hud-mission-name').textContent = lvl.name;
+    document.getElementById('hud-loadout-badge').textContent = drink.badge;
+    document.getElementById('hud-pressure-lbl').textContent = `PRESSURE: ${drink.pressure.toFixed(1)}x`;
+    const flushBtn = document.getElementById('btn-flush');
+    flushBtn.disabled = false;
+    document.getElementById('flush-status').textContent = 'READY (1/1)';
+
+    document.getElementById('modal-briefing').classList.add('hidden');
+    document.getElementById('modal-debrief').classList.add('hidden');
+    document.getElementById('hud-top').classList.remove('hidden');
+    document.getElementById('hud-bottom').classList.remove('hidden');
+
+    updateHUD();
+}
+
+function getSanitationPercent() {
+    let remaining = 0;
+    state.stains.forEach(s => remaining += Math.max(0, s.hp));
+    state.floaters.forEach(f => {
+        if (!f.sunk) remaining += Math.max(0, f.hp);
+    });
+    const pct = Math.round(((state.initialTotalHP - remaining) / state.initialTotalHP) * 100);
+    return Math.min(100, Math.max(0, pct));
+}
+
+function endMission(victory, reasonText) {
+    state.screen = 'DEBRIEF';
+    state.isFiring = false;
+    sfx.updateStreamSound(false, 'none', 1);
+
+    const sanitation = getSanitationPercent();
+    const fluidBonus = victory ? Math.round((state.bladder / state.maxBladder) * 1500) : 0;
+    const splashPenalty = Math.round(state.splashback * 8);
+
+    state.score = Math.max(0, state.score + fluidBonus - splashPenalty);
+
+    const panel = document.getElementById('debrief-panel');
+    const stamp = document.getElementById('debrief-stamp');
+    const title = document.getElementById('debrief-title');
+    const nextBtn = document.getElementById('btn-next-level');
+
+    if (victory) {
+        sfx.playFanfare();
+        panel.style.borderColor = '#4ade80';
+        stamp.textContent = '★ CITATION AWARDED ★';
+        stamp.className = 'inline-block border-2 border-emerald-400 text-emerald-300 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase';
+        title.textContent = 'BOWL SANITIZED!';
+        title.className = 'stencil-font text-3xl sm:text-4xl mb-2 text-emerald-400';
+
+        if (state.levelIndex < LEVELS.length - 1) {
+            nextBtn.classList.remove('hidden');
+            nextBtn.textContent = 'NEXT MISSION ➔';
+        } else {
+            nextBtn.classList.remove('hidden');
+            nextBtn.textContent = '🏆 TOUR COMPLETE (REPLAY)';
+        }
+    } else {
+        sfx.playFailAlarm();
+        panel.style.borderColor = '#ef4444';
+        stamp.textContent = '☠ COURT MARTIAL ☠';
+        stamp.className = 'inline-block border-2 border-red-500 text-red-400 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase';
+        title.textContent = 'MISSION FAILED';
+        title.className = 'stencil-font text-3xl sm:text-4xl mb-2 text-red-500';
+        nextBtn.classList.add('hidden');
+    }
+
+    document.getElementById('debrief-reason').textContent = reasonText;
+    document.getElementById('stat-sanitation').textContent = `${sanitation}%`;
+    document.getElementById('stat-fluid-bonus').textContent = `+${fluidBonus}`;
+    document.getElementById('stat-splash-penalty').textContent = `-${splashPenalty}`;
+    document.getElementById('stat-total-score').textContent = state.score.toLocaleString();
+
+    document.getElementById('modal-debrief').classList.remove('hidden');
+}
+
+// ============================================================================
+// 6. TACTICAL FLUSH MECHANIC
+// ============================================================================
+function triggerTacticalFlush() {
+    if (state.screen !== 'PLAYING' || state.flushUsed) return;
+    state.flushUsed = true;
+    state.flushAnimTimer = 1.6;
+    state.timeLeft = Math.max(1, state.timeLeft - 5);
+    sfx.playFlush();
+
+    document.getElementById('btn-flush').disabled = true;
+    document.getElementById('flush-status').textContent = 'DEPLETED (0/1)';
+
+    addFloatingText(bowl.cx, bowl.cy - 40, 'TACTICAL FLUSH! (-5s)', '#38bdf8');
+
+    // Clear low-HP surface skids and damage all skids; push floaters toward drain
+    for (let i = state.stains.length - 1; i >= 0; i--) {
+        const s = state.stains[i];
+        if (s.type === 'skid') {
+            s.hp -= 26;
+            spawnParticles(s.x, s.y, '#78350f', 6, 90);
+            if (s.hp <= 0) {
+                state.score += 100;
+                state.stains.splice(i, 1);
+            }
+        }
+    }
+
+    const drainY = bowl.cy + bowl.drainYOffset;
+    state.floaters.forEach(f => {
+        if (!f.sunk) {
+            const dx = bowl.cx - f.x;
+            const dy = drainY - f.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            f.vx += (dx / dist) * 140;
+            f.vy += (dy / dist) * 140;
+        }
+    });
+}
+
+// ============================================================================
+// 7. PARTICLES & FLOATING TEXT
+// ============================================================================
+function spawnParticles(x, y, color, count, speed = 120) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = (0.3 + Math.random() * 0.7) * speed;
+        state.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            r: 2 + Math.random() * 3.2,
+            color,
+            life: 0.28 + Math.random() * 0.25,
+            maxLife: 0.53
+        });
+    }
+}
+
+function addFloatingText(x, y, text, color = '#4ade80') {
+    state.floatingTexts.push({
+        x,
+        y,
+        text,
+        color,
+        life: 0.9
+    });
+}
+
+// ============================================================================
+// 8. UPDATE SIMULATION LOOP
+// ============================================================================
+function update(dt) {
+    state.elapsed += dt;
+
+    // Decay screen shake
+    if (state.screenShake > 0) {
+        state.screenShake = Math.max(0, state.screenShake - dt * 25);
+    }
+
+    // Update particles even during debrief for smoothness
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.life -= dt;
+        if (p.life <= 0) state.particles.splice(i, 1);
+    }
+
+    // Update water ripples
+    for (let i = state.ripples.length - 1; i >= 0; i--) {
+        const r = state.ripples[i];
+        r.r += 42 * dt;
+        r.alpha -= 1.2 * dt;
+        if (r.alpha <= 0) state.ripples.splice(i, 1);
+    }
+
+    // Update floating texts
+    for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+        const ft = state.floatingTexts[i];
+        ft.y -= 28 * dt;
+        ft.life -= dt;
+        if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+    }
+
+    if (state.screen !== 'PLAYING') return;
+
+    const drink = DRINK_LOADOUTS[state.selectedDrink];
+
+    // Timer countdown
+    state.timeLeft -= dt;
+    if (state.timeLeft <= 0) {
+        state.timeLeft = 0;
+        endMission(false, 'TIME EXPIRED! Reinforcement squad arrived before you finished.');
+        return;
+    }
+
+    // Flush animation swirl
+    if (state.flushAnimTimer > 0) {
+        state.flushAnimTimer = Math.max(0, state.flushAnimTimer - dt);
+    }
+
+    // Combo decay
+    if (state.comboTimer > 0) {
+        state.comboTimer -= dt;
+        if (state.comboTimer <= 0) {
+            state.combo = 1.0;
+        }
+    }
+
+    // Calculate realistic stream sway + jitter based on hydration loadout
+    const swayX = Math.sin(state.elapsed * drink.swayFreq) * drink.swayAmp;
+    const swayY = Math.cos(state.elapsed * (drink.swayFreq * 0.8)) * (drink.swayAmp * 0.55);
+    const jitterX = (Math.random() - 0.5) * drink.jitter;
+    const jitterY = (Math.random() - 0.5) * drink.jitter;
+
+    // Slight gravity droop when pressure drops at very low bladder
+    const lowBladderDroop = state.bladder < 20 ? (20 - state.bladder) * 1.4 : 0;
+
+    state.aimX = state.mouseX + swayX + jitterX;
+    state.aimY = state.mouseY + swayY + jitterY + lowBladderDroop;
+
+    // Floater physics (bobbing in basin + drain suction)
+    const drainY = bowl.cy + bowl.drainYOffset;
+    state.floaters.forEach(f => {
+        if (f.sunk) return;
+        f.bobPhase += dt * 3.2;
+        f.x += f.vx * dt;
+        f.y += f.vy * dt;
+        f.vx *= 0.90;
+        f.vy *= 0.90;
+
+        // Gentle swirl during flush
+        if (state.flushAnimTimer > 0) {
+            f.angle += dt * 8;
+        }
+
+        // Constrain floater inside water ellipse
+        const wdx = (f.x - bowl.cx) / (bowl.waterRx - f.radius * 0.6);
+        const wdy = (f.y - bowl.cy) / (bowl.waterRy - f.radius * 0.6);
+        const wDist = Math.hypot(wdx, wdy);
+        if (wDist > 1.0) {
+            f.x = bowl.cx + (wdx / wDist) * (bowl.waterRx - f.radius * 0.6);
+            f.y = bowl.cy + (wdy / wDist) * (bowl.waterRy - f.radius * 0.6);
+            f.vx *= -0.5;
+            f.vy *= -0.5;
+        }
+
+        // Check if floater reached the central drain hole
+        const distToDrain = Math.hypot(f.x - bowl.cx, f.y - drainY);
+        if (distToDrain < bowl.drainRx * 0.92) {
+            f.sunk = true;
+            f.hp = 0;
+            sfx.playPop(260);
+            state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+            state.comboTimer = 2.5;
+            const pts = Math.round(350 * state.combo);
+            state.score += pts;
+            addFloatingText(f.x, f.y, `FLOATER SUNK! +${pts}`, '#fbbf24');
+            state.ripples.push({ x: bowl.cx, y: drainY, r: 6, alpha: 0.9 });
+        }
+    });
+
+    // Firing stream logic
+    let hitSurface = 'none';
+    if (state.isFiring && state.bladder > 0) {
+        state.bladder = Math.max(0, state.bladder - drink.drainRate * dt);
+
+        const ax = state.aimX;
+        const ay = state.aimY;
+
+        const inOuter = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.outerRx, bowl.outerRy);
+        const inInner = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.innerRx, bowl.innerRy);
+        const inWater = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.waterRx, bowl.waterRy);
+
+        let hitAnyTarget = false;
+
+        // 1. Check collision with Floaters in basin
+        for (let i = 0; i < state.floaters.length; i++) {
+            const f = state.floaters[i];
+            if (f.sunk) continue;
+            const dist = Math.hypot(ax - f.x, ay - f.y);
+            if (dist <= f.radius + 10) {
+                hitAnyTarget = true;
+                hitSurface = 'stain';
+
+                // Push floater away from stream impact vector (toward drain)
+                const pushAngle = Math.atan2(f.y - (height + 40), f.x - bowl.cx);
+                // Steer slightly toward drain to make herding intuitive & fun
+                const toDrainAngle = Math.atan2(drainY - f.y, bowl.cx - f.x);
+                const blendAngle = toDrainAngle * 0.65 + pushAngle * 0.35;
+
+                f.vx += Math.cos(blendAngle) * 210 * drink.pressure * dt;
+                f.vy += Math.sin(blendAngle) * 210 * drink.pressure * dt;
+                f.hp -= 24 * drink.pressure * dt;
+
+                state.comboTimer = 2.0;
+                if (Math.random() < 0.35) {
+                    spawnParticles(ax, ay, '#92400e', 2, 85);
+                }
+
+                if (f.hp <= 0) {
+                    f.sunk = true;
+                    sfx.playPop(310);
+                    state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+                    const pts = Math.round(300 * state.combo);
+                    state.score += pts;
+                    addFloatingText(f.x, f.y, `OBLITERATED! +${pts}`, '#4ade80');
+                }
+                break;
+            }
+        }
+
+        // 2. Check collision with Stains (Surface Skids & Baked-On Crust)
+        if (!hitAnyTarget) {
+            for (let i = state.stains.length - 1; i >= 0; i--) {
+                const s = state.stains[i];
+                const dist = Math.hypot(ax - s.x, ay - s.y);
+                if (dist <= s.radius + 7) {
+                    hitAnyTarget = true;
+                    hitSurface = 'stain';
+                    state.comboTimer = 2.2;
+
+                    const dmg = 46 * drink.pressure * dt;
+                    s.hp -= dmg;
+
+                    if (Math.random() < 0.45) {
+                        const particleCol = s.type === 'crust' ? '#451a03' : '#78350f';
+                        spawnParticles(ax, ay, particleCol, 2, 95);
+                    }
+
+                    if (s.hp <= 0) {
+                        state.stains.splice(i, 1);
+                        if (s.type === 'crust') {
+                            sfx.playCrunch();
+                            state.screenShake = 4;
+                        } else {
+                            sfx.playPop(480);
+                        }
+                        state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+                        const basePts = s.type === 'crust' ? 250 : 120;
+                        const pts = Math.round(basePts * state.combo);
+                        state.score += pts;
+                        addFloatingText(s.x, s.y, `+${pts}`, s.type === 'crust' ? '#fbbf24' : '#4ade80');
+                    }
+                    break;
+                }
+            }
+        }
+
+        // 3. Surface Splashback & Environmental Feedback
+        if (!hitAnyTarget) {
+            if (!inOuter) {
+                // Hitting bathroom floor tiles -> massive splashback!
+                hitSurface = 'rim';
+                state.splashback += 26 * dt;
+                state.combo = 1.0;
+                if (Math.random() < 0.5) spawnParticles(ax, ay, drink.splashColor, 3, 150);
+            } else if (!inInner) {
+                // Hitting white porcelain toilet seat / rim -> high splashback!
+                hitSurface = 'rim';
+                state.splashback += 18 * dt;
+                state.combo = 1.0;
+                if (Math.random() < 0.5) spawnParticles(ax, ay, drink.splashColor, 3, 140);
+            } else if (inWater) {
+                // Hitting water basin directly -> moderate splashback + ripples
+                hitSurface = 'water';
+                state.splashback += 9.5 * dt;
+                if (Math.random() < 0.25) {
+                    state.ripples.push({ x: ax, y: ay, r: 4, alpha: 0.75 });
+                }
+                if (Math.random() < 0.4) spawnParticles(ax, ay, '#bae6fd', 2, 90);
+            } else {
+                // Clean porcelain slope (safe deflection)
+                hitSurface = 'porcelain';
+                if (Math.random() < 0.35) spawnParticles(ax, ay, drink.splashColor, 1, 70);
+            }
+        } else {
+            // Hitting a stain slightly cools down splashback tension
+            if (Math.random() < 0.4) spawnParticles(ax, ay, drink.splashColor, 1, 65);
+        }
+
+        sfx.updateStreamSound(true, hitSurface, drink.pressure);
+
+        // Check Splashback Failure
+        if (state.splashback >= 100) {
+            state.splashback = 100;
+            updateHUD();
+            endMission(false, 'SPLASHBACK CRITICAL! Your tactical khakis are 100% soaked.');
+            return;
+        }
+    } else {
+        sfx.updateStreamSound(false, 'none', 1);
+    }
+
+    // Check Victory Condition (100% Bowl Sanitation)
+    const activeFloaters = state.floaters.filter(f => !f.sunk).length;
+    if (state.stains.length === 0 && activeFloaters === 0) {
+        updateHUD();
+        endMission(true, '100% Bowl Sanitation achieved! Not a single molecule of evidence remains.');
+        return;
+    }
+
+    // Check Bladder Empty Failure
+    if (state.bladder <= 0) {
+        state.bladder = 0;
+        updateHUD();
+        endMission(false, 'TANK EMPTY! You ran out of ammunition with hostiles still clinging to the porcelain.');
+        return;
+    }
+
+    updateHUD();
+}
+
+function updateHUD() {
+    const sanitation = getSanitationPercent();
+    document.getElementById('hud-sanitation-text').textContent = `${sanitation}%`;
+    document.getElementById('hud-sanitation-bar').style.width = `${sanitation}%`;
+
+    const activeFloaters = state.floaters.filter(f => !f.sunk).length;
+    const totalHostiles = state.stains.length + activeFloaters;
+    document.getElementById('hud-targets-left').textContent = `HOSTILES: ${totalHostiles}`;
+
+    // Timer format MM:SS
+    const mins = Math.floor(state.timeLeft / 60);
+    const secs = Math.ceil(state.timeLeft % 60);
+    const timerEl = document.getElementById('hud-timer');
+    timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+    if (state.timeLeft <= 10) {
+        timerEl.classList.add('text-red-500', 'animate-pulse-fast');
+    } else {
+        timerEl.classList.remove('text-red-500', 'animate-pulse-fast');
+    }
+
+    // Score & Combo
+    document.getElementById('hud-score').textContent = String(state.score).padStart(5, '0');
+    document.getElementById('hud-combo').textContent = `COMBO ${state.combo.toFixed(1)}x`;
+
+    // Bladder Bar
+    const bladderPct = Math.round((state.bladder / state.maxBladder) * 100);
+    document.getElementById('hud-bladder-text').textContent = `${bladderPct}%`;
+    document.getElementById('hud-bladder-bar').style.width = `${bladderPct}%`;
+
+    // Splashback Meter
+    const splashPct = Math.round(state.splashback);
+    document.getElementById('hud-splash-text').textContent = `${splashPct}%`;
+    document.getElementById('hud-splash-bar').style.width = `${splashPct}%`;
+
+    // Screen edge warning glow when splashback > 55%
+    const warnOverlay = document.getElementById('splash-warning-overlay');
+    if (splashPct > 55) {
+        const intensity = (splashPct - 55) / 45;
+        warnOverlay.style.boxShadow = `inset 0 0 ${Math.round(60 * intensity)}px rgba(239, 68, 68, ${0.55 * intensity})`;
+    } else {
+        warnOverlay.style.boxShadow = 'inset 0 0 0px rgba(239, 68, 68, 0)';
+    }
+}
+
+// ============================================================================
+// 9. RENDERING ENGINE (Bathroom Tiles, 3D-Perspective Bowl, Stains, Stream)
+// ============================================================================
+function drawBathroomTiles(lvl) {
+    const tileSize = 64;
+    const cols = Math.ceil(width / tileSize) + 1;
+    const rows = Math.ceil(height / tileSize) + 1;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const isAlt = (r + c) % 2 === 0;
+            ctx.fillStyle = isAlt ? lvl.tileColorA : lvl.tileColorB;
+            ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+
+            // Subtle grout lines
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.25)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize);
+        }
+    }
+
+    // Bathroom floor shadow under toilet base
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(bowl.cx, bowl.cy + 26, bowl.outerRx * 0.96, bowl.outerRy * 0.98, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawToiletBowl(lvl) {
+    const { cx, cy, outerRx, outerRy, innerRx, innerRy, waterRx, waterRy, drainRx, drainRy, drainYOffset } = bowl;
+
+    // 1. Toilet Tank (Top rear perspective)
+    ctx.save();
+    const tankW = outerRx * 1.48;
+    const tankH = outerRy * 0.42;
+    const tankX = cx - tankW / 2;
+    const tankY = cy - outerRy - tankH * 0.58;
+
+    ctx.fillStyle = lvl.porcelainTint;
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(tankX, tankY, tankW, tankH, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    // Flush Chrome Handle on left of tank
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(tankX - 16, tankY + tankH * 0.35, 18, 9);
+    ctx.restore();
+
+    // 2. Outer Ceramic Bowl & Raised Seat
+    ctx.save();
+    const outerGrad = ctx.createRadialGradient(cx - outerRx * 0.2, cy - outerRy * 0.2, innerRx * 0.6, cx, cy, outerRx * 1.05);
+    outerGrad.addColorStop(0, lvl.porcelainTint);
+    outerGrad.addColorStop(0.82, '#e2e8f0');
+    outerGrad.addColorStop(1, '#94a3b8');
+
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, outerRx, outerRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = outerGrad;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#64748b';
+    ctx.stroke();
+
+    // Seat inner lip bevel
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, innerRx + 6, innerRy + 6, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. Inner Porcelain Basin (3D Slope Shading)
+    ctx.save();
+    const basinGrad = ctx.createRadialGradient(cx, cy + innerRy * 0.12, waterRx * 0.4, cx, cy, innerRx);
+    basinGrad.addColorStop(0, '#f8fafc');
+    basinGrad.addColorStop(0.65, '#e2e8f0');
+    basinGrad.addColorStop(0.92, '#cbd5e1');
+    basinGrad.addColorStop(1, '#64748b'); // Deep under-rim shadow
+
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, innerRx, innerRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = basinGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // 4. Water Basin Pool
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, waterRx, waterRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = lvl.waterTint;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(125, 211, 252, 0.5)';
+    ctx.stroke();
+
+    // 5. Central Siphon Drain Hole
+    const drainY = cy + drainYOffset;
+    const drainGrad = ctx.createRadialGradient(cx, drainY, 2, cx, drainY, drainRx);
+    drainGrad.addColorStop(0, '#0f172a');
+    drainGrad.addColorStop(0.75, '#1e293b');
+    drainGrad.addColorStop(1, 'rgba(30, 41, 59, 0.1)');
+
+    ctx.beginPath();
+    ctx.ellipse(cx, drainY, drainRx, drainRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = drainGrad;
+    ctx.fill();
+
+    // Water Surface Specular Highlight
+    ctx.beginPath();
+    ctx.ellipse(cx - waterRx * 0.32, cy - waterRy * 0.28, waterRx * 0.22, waterRy * 0.12, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.fill();
+
+    // Tactical Flush Swirling Vortex Visual
+    if (state.flushAnimTimer > 0) {
+        const alpha = Math.min(0.75, state.flushAnimTimer * 0.5);
+        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctx.lineWidth = 4;
+        for (let ring = 1; ring <= 3; ring++) {
+            ctx.beginPath();
+            const rot = state.elapsed * 9 + ring;
+            ctx.arc(cx, cy, (innerRx * 0.25) * ring, rot, rot + Math.PI * 1.35);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
+}
+
+function drawStainsAndFloaters() {
+    // 1. Draw Stains (Surface Skids & Baked-On Crust)
+    state.stains.forEach(s => {
+        const hpRatio = Math.max(0.15, s.hp / s.maxHp);
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.angle);
+
+        if (s.type === 'skid') {
+            // Surface Skid: shrinks and fades as it dissolves
+            ctx.globalAlpha = 0.4 + hpRatio * 0.6;
+            const scale = 0.55 + hpRatio * 0.45;
+            ctx.scale(scale, scale);
+
+            s.blobs.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#713f12';
+                ctx.fill();
+            });
+            // Darker center smear
+            ctx.beginPath();
+            ctx.arc(0, 0, s.radius * 0.42, 0, Math.PI * 2);
+            ctx.fillStyle = '#451a03';
+            ctx.fill();
+        } else {
+            // Baked-On Crust: heavy armored jagged dark-brown/ochre cluster + mini armor bar
+            s.blobs.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#3f1d0b';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#78350f';
+                ctx.stroke();
+            });
+
+            // Crack lines when damaged
+            if (hpRatio < 0.75) {
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-s.radius * 0.5, -s.radius * 0.2);
+                ctx.lineTo(0, 0);
+                ctx.lineTo(s.radius * 0.4, s.radius * 0.4);
+                if (hpRatio < 0.45) {
+                    ctx.moveTo(s.radius * 0.4, -s.radius * 0.4);
+                    ctx.lineTo(-s.radius * 0.3, s.radius * 0.5);
+                }
+                ctx.stroke();
+            }
+
+            // Armor HP Bar above crust
+            ctx.rotate(-s.angle);
+            const barW = 32;
+            const barH = 4;
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(-barW / 2, -s.radius - 10, barW, barH);
+            ctx.fillStyle = hpRatio > 0.5 ? '#f97316' : '#ef4444';
+            ctx.fillRect(-barW / 2, -s.radius - 10, barW * hpRatio, barH);
+        }
+        ctx.restore();
+    });
+
+    // 2. Draw Floaters (Bobbing in basin water)
+    state.floaters.forEach(f => {
+        if (f.sunk) return;
+        const bobOffset = Math.sin(f.bobPhase) * 2.5;
+        ctx.save();
+        ctx.translate(f.x, f.y + bobOffset);
+        ctx.rotate(f.angle);
+
+        // Water wake ring around floater
+        ctx.beginPath();
+        ctx.ellipse(0, 0, f.radius * 1.45, f.radius * 0.9, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Capsule/Log silhouette
+        ctx.beginPath();
+        ctx.roundRect(-f.radius * 1.1, -f.radius * 0.55, f.radius * 2.2, f.radius * 1.1, 8);
+        ctx.fillStyle = '#5c2d16';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#291206';
+        ctx.stroke();
+
+        // Highlight ridge
+        ctx.beginPath();
+        ctx.roundRect(-f.radius * 0.7, -f.radius * 0.25, f.radius * 1.4, f.radius * 0.28, 4);
+        ctx.fillStyle = '#854d27';
+        ctx.fill();
+
+        ctx.restore();
+    });
+}
+
+function drawRipplesAndParticles() {
+    // Ripples
+    state.ripples.forEach(r => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(r.x, r.y, r.r * 1.2, r.r * 0.85, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(224, 242, 254, ${r.alpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // Splash Particles
+    state.particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
+function drawLiquidStreamAndReticle() {
+    const drink = DRINK_LOADOUTS[state.selectedDrink];
+
+    // Draw Liquid Arc Stream when firing
+    if (state.screen === 'PLAYING' && state.isFiring && state.bladder > 0) {
+        const startX = width * 0.5 + Math.sin(state.elapsed * 2.0) * 14;
+        const startY = height + 20;
+        const endX = state.aimX;
+        const endY = state.aimY;
+
+        // Parabolic control point arching upward for 3D perspective depth
+        const ctrlX = (startX + endX) * 0.5 + (endX - startX) * 0.15;
+        const ctrlY = Math.min(startY, endY) - 95;
+
+        ctx.save();
+        ctx.lineCap = 'round';
+
+        // Outer Glow Stream
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
+        ctx.strokeStyle = drink.colorGlow;
+        ctx.lineWidth = 14 + drink.pressure * 3;
+        ctx.stroke();
+
+        // Inner High-Velocity Core Stream
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
+        ctx.strokeStyle = drink.colorCore;
+        ctx.lineWidth = 5 + drink.pressure * 1.5;
+        ctx.stroke();
+
+        // Impact Splash Ring
+        ctx.beginPath();
+        ctx.arc(endX, endY, 7 + Math.random() * 5, 0, Math.PI * 2);
+        ctx.fillStyle = drink.colorCore;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Draw Tactical Crosshair Reticle at effective Aim Position
+    if (state.screen === 'PLAYING') {
+        const rx = state.aimX;
+        const ry = state.aimY;
+        const radius = state.isFiring ? 15 : 20;
+
+        ctx.save();
+        ctx.translate(rx, ry);
+
+        // Outer tactical ring
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = state.isFiring ? '#fbbf24' : '#4ade80';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Crosshair ticks
+        const tick = 7;
+        ctx.beginPath();
+        ctx.moveTo(-radius - tick, 0); ctx.lineTo(-radius + 4, 0);
+        ctx.moveTo(radius - 4, 0); ctx.lineTo(radius + tick, 0);
+        ctx.moveTo(0, -radius - tick); ctx.lineTo(0, -radius + 4);
+        ctx.moveTo(0, radius - 4); ctx.lineTo(0, radius + tick);
+        ctx.stroke();
+
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ef4444';
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+function drawFloatingTexts() {
+    state.floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, ft.life * 1.4);
+        ctx.font = 'bold 15px "Share Tech Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#000000';
+        ctx.fillText(ft.text, ft.x + 1, ft.y + 1);
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+    });
+}
+
+function render() {
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.save();
+    if (state.screenShake > 0) {
+        const sx = (Math.random() - 0.5) * state.screenShake;
+        const sy = (Math.random() - 0.5) * state.screenShake;
+        ctx.translate(sx, sy);
+    }
+
+    const lvl = LEVELS[state.levelIndex];
+    drawBathroomTiles(lvl);
+    drawToiletBowl(lvl);
+    drawRipplesAndParticles();
+    drawStainsAndFloaters();
+    drawLiquidStreamAndReticle();
+    drawFloatingTexts();
+
+    ctx.restore();
+}
+
+// ============================================================================
+// 10. MAIN ANIMATION LOOP
+// ============================================================================
+let lastTime = performance.now();
+function gameLoop(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ============================================================================
+// 11. INPUT HANDLERS (Mouse, Touch, Keyboard, UI Buttons)
+// ============================================================================
+function updatePointer(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    state.mouseX = clientX - rect.left;
+    state.mouseY = clientY - rect.top;
+}
+
+canvas.addEventListener('mousemove', e => {
+    updatePointer(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button === 0 && state.screen === 'PLAYING') {
+        sfx.init();
+        updatePointer(e.clientX, e.clientY);
+        state.isFiring = true;
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    state.isFiring = false;
+});
+
+// Touch support for mobile devices
+canvas.addEventListener('touchstart', e => {
+    if (state.screen === 'PLAYING') {
+        e.preventDefault();
+        sfx.init();
+        const t = e.touches[0];
+        updatePointer(t.clientX, t.clientY);
+        state.isFiring = true;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    if (state.screen === 'PLAYING') {
+        e.preventDefault();
+        const t = e.touches[0];
+        updatePointer(t.clientX, t.clientY);
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    state.isFiring = false;
+});
+
+// Spacebar to fire / F to Flush
+window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && state.screen === 'PLAYING') {
+        e.preventDefault();
+        sfx.init();
+        state.isFiring = true;
+    } else if (e.code === 'KeyF' && state.screen === 'PLAYING') {
+        triggerTacticalFlush();
+    }
+});
+
+window.addEventListener('keyup', e => {
+    if (e.code === 'Space') {
+        state.isFiring = false;
+    }
+});
+
+// Drink Loadout Selection Cards
+document.querySelectorAll('.drink-card').forEach(card => {
+    card.addEventListener('click', () => {
+        document.querySelectorAll('.drink-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        state.selectedDrink = card.dataset.drink;
+        sfx.init();
+        sfx.playPop(520);
+    });
+});
+
+// UI Action Buttons
+document.getElementById('btn-deploy').addEventListener('click', startMission);
+document.getElementById('btn-flush').addEventListener('click', triggerTacticalFlush);
+
+document.getElementById('btn-mute').addEventListener('click', () => {
+    sfx.init();
+    sfx.muted = !sfx.muted;
+    document.getElementById('btn-mute').textContent = sfx.muted ? '🔇' : '🔊';
+});
+
+document.getElementById('btn-retry').addEventListener('click', () => {
+    openBriefing(state.levelIndex);
+});
+
+document.getElementById('btn-next-level').addEventListener('click', () => {
+    const nextIdx = (state.levelIndex + 1) % LEVELS.length;
+    openBriefing(nextIdx);
+});
+
+// Initialize on Window Load
+window.onload = function () {
+    openBriefing(0);
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
