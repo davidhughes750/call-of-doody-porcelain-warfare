@@ -239,6 +239,16 @@
 
     <!-- BOTTOM TACTICAL GAUGES -->
     <div id="hud-bottom" class="hidden absolute z-10 grid grid-cols-2 sm:flex sm:flex-row justify-between items-stretch sm:items-end gap-1.5 sm:gap-2 pointer-events-none" style="bottom: max(0.5rem, env(safe-area-inset-bottom)); left: max(0.5rem, env(safe-area-inset-left)); right: max(0.5rem, env(safe-area-inset-right));">
+        <!-- Dedicated Mobile Fire Button -->
+        <button
+            id="btn-fire-mobile"
+            type="button"
+            class="col-span-2 sm:hidden pointer-events-auto tac-btn w-full py-3 rounded-lg stencil-font text-sm tracking-wider flex items-center justify-center gap-2 select-none"
+            style="touch-action: none;"
+        >
+            <span>💦 HOLD TO FIRE STREAM</span>
+        </button>
+
         <!-- Left: Bladder Tank (Ammo) -->
         <div class="hud-panel px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-64">
             <div class="flex justify-between items-center text-[10px] sm:text-xs mb-1">
@@ -1018,6 +1028,7 @@ const state = {
     deployCount: 0,
     isFiring: false,
     isTouchAiming: false,
+    isTouchCanvasActive: false,
     touchRawX: width * 0.5,
     touchRawY: height * 0.5,
     mouseX: width * 0.5,
@@ -1049,7 +1060,7 @@ function resizeCanvas() {
 
     const isMobilePortrait = width < 640 && height >= width;
     const topReserved = width < 640 ? 92 : 84;
-    const bottomReserved = width < 640 ? 78 : 88;
+    const bottomReserved = width < 640 ? 136 : 88;
     const availH = Math.max(180, height - topReserved - bottomReserved);
 
     bowl.cx = width * 0.5;
@@ -1500,6 +1511,8 @@ function openBriefing(levelIdx) {
     state.levelIndex = levelIdx;
     state.screen = 'BRIEFING';
     state.isFiring = false;
+    state.isTouchCanvasActive = false;
+    updateFireButtonVisual(false);
     sfx.updateStreamSound(false, 'none', 1);
 
     const lvl = LEVELS[levelIdx];
@@ -1562,7 +1575,8 @@ function startMission() {
     document.getElementById('hud-loadout-badge').textContent = drink.badge;
     document.getElementById('hud-pressure-lbl').textContent = `PWR: ${drink.pressure.toFixed(1)}x`;
     const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    document.getElementById('hud-fire-hint').textContent = isTouchCapable ? 'DRAG: AIM & FIRE' : 'HOLD LMB / SPACE: FIRE';
+    document.getElementById('hud-fire-hint').textContent = isTouchCapable ? 'DRAG: AIM • HOLD BTN: FIRE' : 'HOLD LMB / SPACE: FIRE';
+    updateFireButtonVisual(false);
     const flushBtn = document.getElementById('btn-flush');
     flushBtn.disabled = false;
     document.getElementById('flush-status').textContent = 'READY (1/1)';
@@ -1592,6 +1606,8 @@ function getSanitationPercent() {
 function endMission(victory, reasonText) {
     state.screen = 'DEBRIEF';
     state.isFiring = false;
+    state.isTouchCanvasActive = false;
+    updateFireButtonVisual(false);
     sfx.updateStreamSound(false, 'none', 1);
 
     const sanitation = getSanitationPercent();
@@ -2347,7 +2363,7 @@ function drawLiquidStreamAndReticle() {
         const radius = state.isFiring ? 15 : 20;
 
         // Subtle thumb-to-reticle guide line on touch screens
-        if (state.isTouchAiming && state.isFiring) {
+        if (state.isTouchAiming && (state.isTouchCanvasActive || state.isFiring)) {
             ctx.save();
             ctx.setLineDash([4, 4]);
             ctx.strokeStyle = 'rgba(74, 222, 128, 0.35)';
@@ -2448,6 +2464,24 @@ function gameLoop(now) {
 // ============================================================================
 const TOUCH_AIM_OFFSET_Y = 65;
 
+function updateFireButtonVisual(firing) {
+    const btn = document.getElementById('btn-fire-mobile');
+    if (!btn) return;
+    if (firing) {
+        btn.innerHTML = '<span>🔥 FIRING STREAM...</span>';
+        btn.style.borderColor = '#fbbf24';
+        btn.style.color = '#fef08a';
+        btn.style.background = 'linear-gradient(180deg, #78350f 0%, #451a03 100%)';
+        btn.style.boxShadow = '0 0 18px rgba(251, 191, 36, 0.65)';
+    } else {
+        btn.innerHTML = '<span>💦 HOLD TO FIRE STREAM</span>';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+        btn.style.background = '';
+        btn.style.boxShadow = '';
+    }
+}
+
 function updatePointer(clientX, clientY, isTouch = false) {
     const rect = canvas.getBoundingClientRect();
     const rawX = clientX - rect.left;
@@ -2461,7 +2495,11 @@ function updatePointer(clientX, clientY, isTouch = false) {
         : Math.min(height, Math.max(0, rawY));
     const fireHint = document.getElementById('hud-fire-hint');
     if (fireHint) {
-        fireHint.textContent = isTouch ? 'DRAG: AIM & FIRE' : 'HOLD LMB / SPACE: FIRE';
+        fireHint.textContent = isTouch ? 'DRAG: AIM • HOLD BTN: FIRE' : 'HOLD LMB / SPACE: FIRE';
+    }
+    const mobileFireBtn = document.getElementById('btn-fire-mobile');
+    if (mobileFireBtn && isTouch && height < 600) {
+        mobileFireBtn.classList.remove('sm:hidden');
     }
 }
 
@@ -2479,30 +2517,61 @@ canvas.addEventListener('mousedown', e => {
 
 window.addEventListener('mouseup', () => {
     state.isFiring = false;
+    updateFireButtonVisual(false);
 });
 
-// Touch support for mobile devices (with vertical thumb-offset aiming)
+// Touch support for mobile devices (canvas drag = aim only; multi-touch safe)
 canvas.addEventListener('touchstart', e => {
     if (state.screen === 'PLAYING') {
         e.preventDefault();
         sfx.init();
-        const t = e.touches[0];
-        updatePointer(t.clientX, t.clientY, true);
-        state.isFiring = true;
+        state.isTouchCanvasActive = true;
+        const t = (e.targetTouches && e.targetTouches[0]) || e.touches[0];
+        if (t) updatePointer(t.clientX, t.clientY, true);
     }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
     if (state.screen === 'PLAYING') {
         e.preventDefault();
-        const t = e.touches[0];
-        updatePointer(t.clientX, t.clientY, true);
+        const t = (e.targetTouches && e.targetTouches[0]) || e.touches[0];
+        if (t) updatePointer(t.clientX, t.clientY, true);
     }
 }, { passive: false });
 
-canvas.addEventListener('touchend', () => {
-    state.isFiring = false;
+canvas.addEventListener('touchend', e => {
+    if (!e.targetTouches || e.targetTouches.length === 0) {
+        state.isTouchCanvasActive = false;
+    }
 });
+
+canvas.addEventListener('touchcancel', e => {
+    if (!e.targetTouches || e.targetTouches.length === 0) {
+        state.isTouchCanvasActive = false;
+    }
+});
+
+// Dedicated Mobile Hold-to-Fire Button
+const mobileFireBtnEl = document.getElementById('btn-fire-mobile');
+const startMobileFire = e => {
+    e.preventDefault();
+    sfx.init();
+    if (state.screen === 'PLAYING') {
+        state.isFiring = true;
+        updateFireButtonVisual(true);
+    }
+};
+const stopMobileFire = e => {
+    e.preventDefault();
+    state.isFiring = false;
+    updateFireButtonVisual(false);
+};
+mobileFireBtnEl.addEventListener('touchstart', startMobileFire, { passive: false });
+mobileFireBtnEl.addEventListener('mousedown', startMobileFire);
+mobileFireBtnEl.addEventListener('touchend', stopMobileFire, { passive: false });
+mobileFireBtnEl.addEventListener('touchcancel', stopMobileFire, { passive: false });
+mobileFireBtnEl.addEventListener('mouseup', stopMobileFire);
+mobileFireBtnEl.addEventListener('mouseleave', stopMobileFire);
 
 // Spacebar to fire / F to Flush
 window.addEventListener('keydown', e => {

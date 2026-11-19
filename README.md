@@ -28,8 +28,9 @@ A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural 
 
 ## Controls
 
-- **Mouse / Touch** — Aim stream
-- **Hold Left Mouse Button / Touch / Spacebar** — Fire stream
+- **Mouse / Touch Drag** — Aim stream
+- **Desktop Fire** — Hold Left Mouse Button or `Space`
+- **Mobile Fire** — Hold the dedicated **HOLD TO FIRE STREAM** button while aiming with your other thumb
 - **`F` or Tactical Flush Button** — Trigger single-use Tactical Flush (clears loose skids & pushes floaters toward the drain, costs 5s)
 - **Audio Button (`🔊`/`🔇`)** — Toggle procedural Web Audio sound effects
 
