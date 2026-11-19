@@ -9,7 +9,7 @@ A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural 
 ## Features
 
 - **Operative Callsign Prompt**: Enter your callsign on the home briefing screen before deploying (saved automatically across sessions).
-- **Persistent Global Leaderboard**: Tracks top global scores across sessions and devices, displayed on both the home briefing screen and mission debrief report.
+- **Persistent Global Leaderboard**: Tracks top personal-best scores per unique operative (1 row per player with total plays badge) and displays live global mission/operative counters on both the home briefing screen and mission debrief report.
 - **Mobile & Touch Optimized**: Features thumb-offset touch aiming (with a subtle reticle guide line), a Retina (`devicePixelRatio`) canvas, proportional portrait bowl scaling with safe-area support, and a compact single-row mobile HUD.
 - **Drill Sergeant Radio Comms**: Includes 8 radio-filtered Gunnery Sgt. Hartman-inspired MP3 voice lines (`audio/*.mp3`) triggered on mission deploy, crust clearing, floater sinking, splashback warnings, tactical flush, victory, and court martial (with an on-screen radio subtitle banner and home-screen soundboard trigger).
 

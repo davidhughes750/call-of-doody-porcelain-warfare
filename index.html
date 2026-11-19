@@ -390,9 +390,14 @@
 
             <!-- Global Tactical Leaderboard (Home Screen) -->
             <div class="mt-3 sm:mt-4 bg-slate-950/85 border border-emerald-500/30 rounded p-2.5 sm:p-3">
-                <div class="flex flex-wrap justify-between items-center gap-2 mb-1.5 sm:mb-2">
-                    <div class="text-[11px] sm:text-xs font-bold text-amber-400 tracking-wider uppercase">
-                        🏆 GLOBAL LEADERBOARD
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-1.5 sm:mb-2">
+                    <div>
+                        <div class="text-[11px] sm:text-xs font-bold text-amber-400 tracking-wider uppercase">
+                            🏆 GLOBAL LEADERBOARD
+                        </div>
+                        <div id="lb-stats-briefing" class="text-[10px] text-emerald-300 font-bold tracking-wide uppercase mt-0.5">
+                            📊 66 MISSIONS PLAYED • 7 OPERATIVES
+                        </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="lb-status-briefing" class="text-[10px] text-emerald-400 uppercase">● SYNCING...</span>
@@ -453,8 +458,13 @@
 
             <!-- Global Standings (Mission Debrief) -->
             <div class="bg-slate-950/90 border border-emerald-500/30 rounded p-3 mb-4 text-left">
-                <div class="flex justify-between items-center gap-2 mb-2">
-                    <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">🏆 GLOBAL STANDINGS</span>
+                <div class="flex flex-wrap justify-between items-start gap-2 mb-2">
+                    <div>
+                        <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">🏆 GLOBAL STANDINGS</span>
+                        <div id="lb-stats-debrief" class="text-[10px] text-emerald-300 font-bold tracking-wide uppercase mt-0.5">
+                            📊 66 MISSIONS PLAYED • 7 OPERATIVES
+                        </div>
+                    </div>
                     <span id="lb-status-debrief" class="text-[10px] text-emerald-400 uppercase">● SYNCING...</span>
                 </div>
                 <div class="max-h-40 overflow-y-auto">
@@ -1116,16 +1126,24 @@ resizeCanvas();
 // 3B. PERSISTENT GLOBAL LEADERBOARD MANAGER (Cloud + LocalStorage Sync)
 // ============================================================================
 const LeaderboardManager = {
-    RESTFUL_OBJ_URL: 'https://api.restful-api.dev/objects/ff808181a09d98f701a1f592debc7b76',
     NTFY_TOPIC_URL: 'https://ntfy.sh/cod_porcelain_warfare_lb_d750_v1',
-    LOCAL_LB_KEY: 'cod_porcelain_leaderboard_v1',
+    LOCAL_LB_KEY: 'cod_porcelain_leaderboard_v2',
+    LOCAL_LEGACY_LB_KEY: 'cod_porcelain_leaderboard_v1',
     LOCAL_NAME_KEY: 'cod_porcelain_callsign_v1',
+    COMPACT_AGE_MS: 60 * 60 * 1000,
     DRINK_ICONS: { water: '💧', coffee: '☕', energy: '⚡', beer: '🍺' },
-    DEFAULT_SEED_ENTRIES: [
-        { id: 'seed-1', name: 'CPT. PLUNGER', score: 1800, mission: 'OP: TACO TUESDAY', drink: 'coffee', sanitation: 100, victory: true, ts: 1700000001 },
-        { id: 'seed-2', name: 'SGT. BRISTLE', score: 1250, mission: 'OP: TACO TUESDAY', drink: 'water', sanitation: 100, victory: true, ts: 1700000002 },
-        { id: 'seed-3', name: 'PVT. SPLASH', score: 650, mission: 'OP: TACO TUESDAY', drink: 'beer', sanitation: 72, victory: false, ts: 1700000003 }
-    ],
+    DEFAULT_BASELINE_SNAPSHOT: {
+        asOfTs: 1795124725011,
+        players: [
+            { name: 'DAN', score: 26094, mission: 'OP: CURRY NIGHT', drink: 'energy', sanitation: 58, victory: false, ts: 1795124725011, bestId: 'mwo2wumr-erep', plays: 29, wins: 2 },
+            { name: 'CHIEF PEBBLEDASH', score: 15727, mission: 'OP: CURRY NIGHT', drink: 'energy', sanitation: 41, victory: false, ts: 1795124092363, bestId: 'mwo2jah7-wy71', plays: 18, wins: 1 },
+            { name: 'DAVE', score: 3076, mission: 'OP: TACO TUESDAY', drink: 'water', sanitation: 49, victory: false, ts: 1795121742762, bestId: 'mwo14xii-lb02', plays: 7, wins: 0 },
+            { name: 'FLETCH', score: 2387, mission: 'OP: TACO TUESDAY', drink: 'beer', sanitation: 100, victory: true, ts: 1795123773429, bestId: 'mwo2cgdx-gq5g', plays: 5, wins: 1 },
+            { name: 'D', score: 2020, mission: 'OP: TACO TUESDAY', drink: 'water', sanitation: 87, victory: false, ts: 1795123384826, bestId: 'mwo244je-fhqo', plays: 4, wins: 0 },
+            { name: 'SGT PARTICLES', score: 1464, mission: 'OP: TACO TUESDAY', drink: 'water', sanitation: 50, victory: false, ts: 1795123370045, bestId: 'mwo23t4t-k3cp', plays: 1, wins: 0 },
+            { name: 'SKIDMASTER', score: 1259, mission: 'OP: TACO TUESDAY', drink: 'coffee', sanitation: 43, victory: false, ts: 1795124296623, bestId: 'mwo2no33-w4g5', plays: 2, wins: 0 }
+        ]
+    },
 
     escapeHtml(str) {
         return String(str)
@@ -1136,12 +1154,12 @@ const LeaderboardManager = {
             .replace(/'/g, '&#39;');
     },
 
-    sanitizeEntry(raw) {
+    sanitizeRun(raw) {
         if (!raw || typeof raw !== 'object') return null;
         const id = String(raw.id || '').trim();
         const name = String(raw.name || '').trim().toUpperCase().slice(0, 16);
         const score = Number(raw.score);
-        if (!id || !name || !Number.isFinite(score) || score < 0) return null;
+        if (!id || !name || id.startsWith('seed-') || !Number.isFinite(score) || score < 0) return null;
         return {
             id,
             name,
@@ -1154,36 +1172,160 @@ const LeaderboardManager = {
         };
     },
 
-    mergeEntries(...lists) {
+    sanitizeSnapshot(raw) {
+        if (!raw || typeof raw !== 'object' || !Array.isArray(raw.players)) return null;
+        const asOfTs = Number(raw.asOfTs);
+        if (!Number.isFinite(asOfTs) || asOfTs < 0) return null;
+        const players = [];
+        raw.players.forEach(p => {
+            if (!p || typeof p !== 'object') return;
+            const name = String(p.name || '').trim().toUpperCase().slice(0, 16);
+            const score = Number(p.score);
+            const plays = Math.max(1, Math.round(Number(p.plays) || 1));
+            if (!name || !Number.isFinite(score) || score < 0) return;
+            players.push({
+                name,
+                score: Math.round(score),
+                mission: String(p.mission || 'OP: TACO TUESDAY').slice(0, 32),
+                drink: this.DRINK_ICONS[p.drink] ? p.drink : 'water',
+                sanitation: Math.min(100, Math.max(0, Math.round(Number(p.sanitation) || 0))),
+                victory: Boolean(p.victory),
+                ts: Number(p.ts) || 0,
+                bestId: String(p.bestId || ''),
+                plays,
+                wins: Math.max(0, Math.round(Number(p.wins) || 0))
+            });
+        });
+        return { asOfTs, players };
+    },
+
+    pickBestSnapshot(...candidates) {
+        let best = { asOfTs: 0, players: [] };
+        let bestPlays = 0;
+        candidates.forEach(cand => {
+            const snap = this.sanitizeSnapshot(cand);
+            if (!snap) return;
+            const totalPlays = snap.players.reduce((sum, p) => sum + p.plays, 0);
+            if (snap.asOfTs > best.asOfTs || (snap.asOfTs === best.asOfTs && totalPlays > bestPlays)) {
+                best = snap;
+                bestPlays = totalPlays;
+            }
+        });
+        return best;
+    },
+
+    dedupeRuns(...runLists) {
         const byId = new Map();
-        lists.forEach(list => {
+        runLists.forEach(list => {
             if (!Array.isArray(list)) return;
             list.forEach(item => {
-                const clean = this.sanitizeEntry(item);
+                const clean = this.sanitizeRun(item);
                 if (clean && !byId.has(clean.id)) {
                     byId.set(clean.id, clean);
                 }
             });
         });
-        return Array.from(byId.values())
-            .sort((a, b) => (b.score - a.score) || (b.sanitation - a.sanitation) || (a.ts - b.ts))
-            .slice(0, 50);
+        return Array.from(byId.values()).sort((a, b) => a.ts - b.ts);
     },
 
-    getLocalEntries() {
+    aggregateLeaderboard(snapshot, runs) {
+        const base = this.sanitizeSnapshot(snapshot) || { asOfTs: 0, players: [] };
+        const byPlayer = new Map();
+
+        base.players.forEach(p => {
+            byPlayer.set(p.name, { ...p });
+        });
+
+        this.dedupeRuns(runs).forEach(run => {
+            if (run.ts <= base.asOfTs) return;
+            const cur = byPlayer.get(run.name);
+            if (!cur) {
+                byPlayer.set(run.name, {
+                    name: run.name,
+                    score: run.score,
+                    mission: run.mission,
+                    drink: run.drink,
+                    sanitation: run.sanitation,
+                    victory: run.victory,
+                    ts: run.ts,
+                    bestId: run.id,
+                    plays: 1,
+                    wins: run.victory ? 1 : 0
+                });
+            } else {
+                cur.plays += 1;
+                if (run.victory) cur.wins += 1;
+                const isBetter =
+                    (run.score > cur.score) ||
+                    (run.score === cur.score && run.sanitation > cur.sanitation) ||
+                    (run.score === cur.score && run.sanitation === cur.sanitation && run.ts < cur.ts);
+                if (isBetter) {
+                    cur.score = run.score;
+                    cur.mission = run.mission;
+                    cur.drink = run.drink;
+                    cur.sanitation = run.sanitation;
+                    cur.victory = run.victory;
+                    cur.ts = run.ts;
+                    cur.bestId = run.id;
+                }
+            }
+        });
+
+        const players = Array.from(byPlayer.values()).sort(
+            (a, b) => (b.score - a.score) || (b.sanitation - a.sanitation) || (a.ts - b.ts)
+        );
+        const totalPlays = players.reduce((sum, p) => sum + p.plays, 0);
+        return {
+            players,
+            totalPlays,
+            uniqueOperatives: players.length
+        };
+    },
+
+    compactSnapshot(snapshot, runs, cutoffTs) {
+        const base = this.sanitizeSnapshot(snapshot) || { asOfTs: 0, players: [] };
+        const effectiveCutoff = Math.max(base.asOfTs, cutoffTs);
+        const allRuns = this.dedupeRuns(runs);
+        const toCompact = allRuns.filter(r => r.ts > base.asOfTs && r.ts <= effectiveCutoff);
+        const compacted = this.aggregateLeaderboard(base, toCompact);
+        const newSnapshot = {
+            asOfTs: effectiveCutoff,
+            players: compacted.players
+        };
+        const remainingRuns = allRuns.filter(r => r.ts > effectiveCutoff);
+        return { snapshot: newSnapshot, remainingRuns };
+    },
+
+    getLocalState() {
         try {
             const raw = localStorage.getItem(this.LOCAL_LB_KEY);
-            if (!raw) return [...this.DEFAULT_SEED_ENTRIES];
-            const parsed = JSON.parse(raw);
-            return this.mergeEntries(parsed, this.DEFAULT_SEED_ENTRIES);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                const snapshot = this.pickBestSnapshot(this.DEFAULT_BASELINE_SNAPSHOT, parsed.snapshot);
+                const runs = this.dedupeRuns(parsed.runs);
+                return { snapshot, runs };
+            }
+            // Migrate any legacy v1 runs above baseline
+            const legacyRaw = localStorage.getItem(this.LOCAL_LEGACY_LB_KEY);
+            const legacyRuns = legacyRaw ? this.dedupeRuns(JSON.parse(legacyRaw)) : [];
+            return {
+                snapshot: this.pickBestSnapshot(this.DEFAULT_BASELINE_SNAPSHOT),
+                runs: legacyRuns
+            };
         } catch {
-            return [...this.DEFAULT_SEED_ENTRIES];
+            return {
+                snapshot: this.pickBestSnapshot(this.DEFAULT_BASELINE_SNAPSHOT),
+                runs: []
+            };
         }
     },
 
-    saveLocalEntries(entries) {
+    saveLocalState(snapshot, runs) {
         try {
-            localStorage.setItem(this.LOCAL_LB_KEY, JSON.stringify(entries));
+            localStorage.setItem(this.LOCAL_LB_KEY, JSON.stringify({
+                snapshot,
+                runs: runs.slice(-150)
+            }));
         } catch {
             // Ignore storage quota errors
         }
@@ -1214,22 +1356,36 @@ const LeaderboardManager = {
         });
     },
 
-    renderLeaderboard(entries) {
-        const top = entries.slice(0, 10);
+    renderLeaderboard(agg) {
+        const statsText = `📊 ${agg.totalPlays.toLocaleString()} MISSIONS PLAYED • ${agg.uniqueOperatives.toLocaleString()} OPERATIVES`;
+        ['lb-stats-briefing', 'lb-stats-debrief'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = statsText;
+        });
+
+        const top = agg.players.slice(0, 10);
         const rowsHtml = top.length
             ? top.map((entry, idx) => {
                 const rank = idx + 1;
                 const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
                 const icon = this.DRINK_ICONS[entry.drink] || '💧';
-                const isNew = state.lastSubmittedId && entry.id === state.lastSubmittedId;
-                const rowClass = isNew
-                    ? 'bg-emerald-900/45 text-emerald-200 font-bold'
-                    : (rank === 1 ? 'text-amber-300' : 'text-slate-200');
+                const isJustSubmitted = state.lastSubmittedId && entry.bestId === state.lastSubmittedId;
+                const isCurrentPlayer = state.playerName && entry.name === state.playerName;
+                const rowClass = isJustSubmitted
+                    ? 'bg-emerald-900/50 text-emerald-200 font-bold'
+                    : isCurrentPlayer
+                        ? 'bg-emerald-950/60 text-emerald-300'
+                        : (rank === 1 ? 'text-amber-300' : 'text-slate-200');
                 const missionShort = this.escapeHtml(entry.mission.replace(/^OP:\s*/i, ''));
                 return `<tr class="${rowClass}">
                     <td class="py-1.5 pr-2 whitespace-nowrap font-bold">${rankLabel}</td>
-                    <td class="py-1.5 pr-2 truncate max-w-[120px]">${this.escapeHtml(entry.name)}</td>
-                    <td class="py-1.5 pr-2 hidden sm:table-cell text-slate-400 truncate max-w-[130px]">${missionShort}</td>
+                    <td class="py-1.5 pr-2 max-w-[145px]">
+                        <div class="flex items-center gap-1 min-w-0">
+                            <span class="truncate">${this.escapeHtml(entry.name)}</span>
+                            <span class="shrink-0 px-1 rounded bg-slate-800 border border-slate-700 text-[9px] text-emerald-300 font-normal">${entry.plays}x</span>
+                        </div>
+                    </td>
+                    <td class="py-1.5 pr-2 hidden sm:table-cell text-slate-400 truncate max-w-[125px]">${missionShort}</td>
                     <td class="py-1.5 pr-2 whitespace-nowrap">${icon} <span class="text-slate-400 text-[10px]">${entry.sanitation}%</span></td>
                     <td class="py-1.5 text-right font-bold text-amber-400 whitespace-nowrap">${entry.score.toLocaleString()}</td>
                 </tr>`;
@@ -1242,40 +1398,15 @@ const LeaderboardManager = {
         });
     },
 
-    async fetchRestfulEntries() {
-        const res = await fetch(this.RESTFUL_OBJ_URL, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            cache: 'no-store'
-        });
-        if (!res.ok) throw new Error(`RESTful GET ${res.status}`);
-        const json = await res.json();
-        return Array.isArray(json?.data?.entries) ? json.data.entries : [];
-    },
-
-    async putRestfulEntries(entries) {
-        const res = await fetch(this.RESTFUL_OBJ_URL, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                name: 'cod-porcelain-warfare-leaderboard',
-                data: { entries }
-            })
-        });
-        if (!res.ok) throw new Error(`RESTful PUT ${res.status}`);
-    },
-
-    async fetchNtfyEntries() {
+    async fetchNtfyData() {
         const res = await fetch(`${this.NTFY_TOPIC_URL}/json?poll=1&since=all`, {
             method: 'GET',
             cache: 'no-store'
         });
         if (!res.ok) throw new Error(`ntfy GET ${res.status}`);
         const text = await res.text();
-        const entries = [];
+        const runs = [];
+        const snapshots = [];
         text.split('\n').forEach(line => {
             const trimmed = line.trim();
             if (!trimmed) return;
@@ -1283,54 +1414,45 @@ const LeaderboardManager = {
                 const evt = JSON.parse(trimmed);
                 if (evt.event === 'message' && typeof evt.message === 'string') {
                     const parsed = JSON.parse(evt.message);
-                    entries.push(parsed);
+                    if (parsed && parsed.type === 'score_with_snapshot') {
+                        if (parsed.entry) runs.push(parsed.entry);
+                        if (parsed.snapshot) snapshots.push(parsed.snapshot);
+                    } else if (parsed && parsed.type === 'snapshot' && parsed.snapshot) {
+                        snapshots.push(parsed.snapshot);
+                    } else {
+                        runs.push(parsed);
+                    }
                 }
             } catch {
                 // Ignore malformed lines
             }
         });
-        return entries;
+        return { runs, snapshots };
     },
 
     async syncLeaderboard() {
-        const localEntries = this.getLocalEntries();
-        this.renderLeaderboard(localEntries);
+        const local = this.getLocalState();
+        this.renderLeaderboard(this.aggregateLeaderboard(local.snapshot, local.runs));
         this.setStatus('● SYNCING...', 'text-amber-300');
 
-        const [restfulRes, ntfyRes] = await Promise.allSettled([
-            this.fetchRestfulEntries(),
-            this.fetchNtfyEntries()
-        ]);
-
-        const restfulEntries = restfulRes.status === 'fulfilled' ? restfulRes.value : [];
-        const ntfyEntries = ntfyRes.status === 'fulfilled' ? ntfyRes.value : [];
-        const anyCloudOk = restfulRes.status === 'fulfilled' || ntfyRes.status === 'fulfilled';
-
-        const merged = this.mergeEntries(localEntries, restfulEntries, ntfyEntries, this.DEFAULT_SEED_ENTRIES);
-        this.saveLocalEntries(merged);
-        this.renderLeaderboard(merged);
-
-        if (restfulRes.status === 'fulfilled') {
-            const remoteIds = new Set(restfulEntries.map(e => e && e.id));
-            const needsPut = merged.some(e => !remoteIds.has(e.id));
-            if (needsPut) {
-                try {
-                    await this.putRestfulEntries(merged);
-                } catch {
-                    // Best effort consolidation
-                }
-            }
-        }
-
-        if (anyCloudOk) {
+        try {
+            const cloud = await this.fetchNtfyData();
+            const bestSnapshot = this.pickBestSnapshot(
+                this.DEFAULT_BASELINE_SNAPSHOT,
+                local.snapshot,
+                ...cloud.snapshots
+            );
+            const allRuns = this.dedupeRuns(local.runs, cloud.runs).filter(r => r.ts > bestSnapshot.asOfTs);
+            this.saveLocalState(bestSnapshot, allRuns);
+            this.renderLeaderboard(this.aggregateLeaderboard(bestSnapshot, allRuns));
             this.setStatus('● GLOBAL CLOUD LIVE', 'text-emerald-400');
-        } else {
+        } catch {
             this.setStatus('● LOCAL CACHE (OFFLINE)', 'text-amber-400');
         }
     },
 
     async submitScore({ name, score, mission, drink, sanitation, victory }) {
-        const entry = this.sanitizeEntry({
+        const entry = this.sanitizeRun({
             id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
             name,
             score,
@@ -1343,41 +1465,47 @@ const LeaderboardManager = {
         if (!entry) return;
 
         state.lastSubmittedId = entry.id;
-        const localUpdated = this.mergeEntries([entry], this.getLocalEntries());
-        this.saveLocalEntries(localUpdated);
-        this.renderLeaderboard(localUpdated);
+        const local = this.getLocalState();
+        const localRuns = this.dedupeRuns(local.runs, [entry]);
+        this.saveLocalState(local.snapshot, localRuns);
+        this.renderLeaderboard(this.aggregateLeaderboard(local.snapshot, localRuns));
         this.setStatus('● SAVING SCORE...', 'text-amber-300');
 
-        const postPromise = fetch(this.NTFY_TOPIC_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(entry)
-        });
-
-        const [restfulRes, ntfyRes, postRes] = await Promise.allSettled([
-            this.fetchRestfulEntries(),
-            this.fetchNtfyEntries(),
-            postPromise
-        ]);
-
-        const restfulEntries = restfulRes.status === 'fulfilled' ? restfulRes.value : [];
-        const ntfyEntries = ntfyRes.status === 'fulfilled' ? ntfyRes.value : [];
-        const merged = this.mergeEntries([entry], localUpdated, restfulEntries, ntfyEntries);
-
-        this.saveLocalEntries(merged);
-        this.renderLeaderboard(merged);
-
-        let cloudSaved = postRes.status === 'fulfilled' && postRes.value.ok;
+        let cloud = { runs: [], snapshots: [] };
         try {
-            await this.putRestfulEntries(merged);
-            cloudSaved = true;
+            cloud = await this.fetchNtfyData();
         } catch {
-            // Keep ntfy / local persistence if RESTful PUT fails
+            // Proceed with local state if initial poll fails
         }
 
-        if (cloudSaved || restfulRes.status === 'fulfilled' || ntfyRes.status === 'fulfilled') {
-            this.setStatus('● GLOBAL CLOUD LIVE', 'text-emerald-400');
-        } else {
+        const bestSnapshot = this.pickBestSnapshot(
+            this.DEFAULT_BASELINE_SNAPSHOT,
+            local.snapshot,
+            ...cloud.snapshots
+        );
+        const allRuns = this.dedupeRuns(localRuns, cloud.runs);
+        const cutoffTs = Math.max(bestSnapshot.asOfTs, Date.now() - this.COMPACT_AGE_MS);
+        const compacted = this.compactSnapshot(bestSnapshot, allRuns, cutoffTs);
+
+        this.saveLocalState(compacted.snapshot, compacted.remainingRuns);
+        this.renderLeaderboard(this.aggregateLeaderboard(compacted.snapshot, compacted.remainingRuns));
+
+        try {
+            const postRes = await fetch(this.NTFY_TOPIC_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'score_with_snapshot',
+                    entry,
+                    snapshot: compacted.snapshot
+                })
+            });
+            if (postRes.ok) {
+                this.setStatus('● GLOBAL CLOUD LIVE', 'text-emerald-400');
+            } else {
+                this.setStatus('● LOCAL CACHE (OFFLINE)', 'text-amber-400');
+            }
+        } catch {
             this.setStatus('● LOCAL CACHE (OFFLINE)', 'text-amber-400');
         }
     }
