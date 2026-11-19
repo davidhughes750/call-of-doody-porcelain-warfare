@@ -1,6 +1,6 @@
 # Call of Doody: Porcelain Warfare
 
-A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural Web Audio sound effects, 3 missions, 4 tactical hydration loadouts, and a persistent global leaderboard.
+A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural Web Audio sound effects, 4 missions, 4 tactical hydration loadouts, in-bowl power-ups, Kegel Overcharge bursts, and a persistent global leaderboard.
 
 ## Play Online
 
@@ -9,15 +9,17 @@ A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural 
 ## Features
 
 - **Operative Callsign Prompt**: Enter your callsign on the home briefing screen before deploying (saved automatically across sessions).
-- **Persistent Global Leaderboard**: Tracks top personal-best scores per unique operative (1 row per player with total plays badge) and displays live global mission/operative counters on both the home briefing screen and mission debrief report.
-- **Mobile & Touch Optimized**: Features thumb-offset touch aiming (with a subtle reticle guide line), a Retina (`devicePixelRatio`) canvas, proportional portrait bowl scaling with safe-area support, and a compact single-row mobile HUD.
+- **Persistent Global Leaderboard & Operative Ranks**: Tracks top personal-best scores per unique operative (1 row per player with rank badge `PVT`–`GEN` and total plays badge) alongside live global mission/operative counters on both the home briefing screen and mission debrief report.
+- **In-Bowl Power-Ups & Kegel Overcharge**: Pop **Urinal Cake Bombs** for a `-25%` splashback foam shockwave, pop **Hydration Bubbles** for `+20%` tank refills, and hold off fire for `2s` to unleash a `2.2x` **Kegel Overcharge** burst with FPS hit-markers and debrief medals.
+- **Mobile & Touch Optimized**: Features thumb-offset touch aiming with a dedicated **HOLD TO FIRE STREAM** button, a Retina (`devicePixelRatio`) canvas, proportional portrait bowl scaling with safe-area support, and a compact single-row mobile HUD.
 - **Drill Sergeant Radio Comms**: Includes 8 radio-filtered Gunnery Sgt. Hartman-inspired MP3 voice lines (`audio/*.mp3`) triggered on mission deploy, crust clearing, floater sinking, splashback warnings, tactical flush, victory, and court martial (with an on-screen radio subtitle banner and home-screen soundboard trigger).
 
 ## Missions
 
 1. **Op: Taco Tuesday** *(Suburban Bathroom)* — Moderate surface skids, baked-on crust clusters, and a rogue floater.
-2. **Op: Curry Night** *(Apartment Suite)* — Dense baked-on crust formations requiring higher hydro-pressure.
-3. **Op: Festival Porta-Potty** *(Hazmat Warzone)* — Maximum stain density inside a chemical blue basin.
+2. **Op: Curry Night** *(Apartment Suite)* — Dense baked-on crust formations and a regenerating Slime Streak.
+3. **Op: Festival Porta-Potty** *(Hazmat Warzone)* — High stain density, Slime Streaks, and a splitting Cluster Floater inside a chemical blue basin.
+4. **Op: Truck Stop Latrine** *(Interstate Bio-Boss)* — Boss stage packed with regenerating Slime Streaks and twin Cluster Floaters.
 
 ## Tactical Hydration Loadouts
 

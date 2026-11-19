@@ -456,6 +456,8 @@
                 </div>
             </div>
 
+            <div id="debrief-medals" class="hidden flex flex-wrap justify-center gap-1.5 mb-3"></div>
+
             <!-- Global Standings (Mission Debrief) -->
             <div class="bg-slate-950/90 border border-emerald-500/30 rounded p-3 mb-4 text-left">
                 <div class="flex flex-wrap justify-between items-start gap-2 mb-2">
@@ -731,6 +733,26 @@ class SoundFX {
         osc.start(now);
         osc.stop(now + 0.05);
     }
+
+    playHitTick(isKill = false) {
+        if (!this.ctx || this.muted) return;
+        const nowMs = performance.now();
+        if (!isKill && this._lastTickMs && (nowMs - this._lastTickMs) < 90) return;
+        this._lastTickMs = nowMs;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(isKill ? 2100 : 1450, now);
+        osc.frequency.exponentialRampToValueAtTime(isKill ? 950 : 750, now + 0.035);
+        gain.gain.setValueAtTime(isKill ? 0.14 : 0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.045);
+    }
 }
 
 const sfx = new SoundFX();
@@ -961,7 +983,9 @@ const LEVELS = [
         timeLimit: 60,
         skids: 8,
         crusts: 2,
+        slimes: 0,
         floaters: 1,
+        clusterFloaters: 0,
         desc: 'Recon shows moderate Surface Skids from last night’s Taco Tuesday, two Baked-On Crust clusters on the upper slope, and one rogue Floater in the basin.'
     },
     {
@@ -975,8 +999,10 @@ const LEVELS = [
         timeLimit: 70,
         skids: 11,
         crusts: 5,
+        slimes: 1,
         floaters: 2,
-        desc: 'Heavy spice fallout! Thick Baked-On Crust formations have hardened along the inner porcelain wall. Recommend Black Coffee or Nitro Energy for armor penetration.'
+        clusterFloaters: 0,
+        desc: 'Heavy spice fallout! Thick Baked-On Crust and a regenerating Slime Streak have formed on the inner porcelain. Use Kegel Overcharge or Urinal Cake Bombs!'
     },
     {
         id: 3,
@@ -989,8 +1015,26 @@ const LEVELS = [
         timeLimit: 85,
         skids: 14,
         crusts: 7,
+        slimes: 2,
         floaters: 3,
-        desc: 'CRITICAL BIO-HAZARD! Maximum stain density inside a chemical blue basin. Watch your Splashback Meter—blue chemical splashback is lethal!'
+        clusterFloaters: 1,
+        desc: 'CRITICAL BIO-HAZARD! Maximum stain density plus a giant Cluster Floater inside a chemical blue basin. Break the Cluster Floater in two before draining!'
+    },
+    {
+        id: 4,
+        name: 'OP: TRUCK STOP LATRINE',
+        env: 'INTERSTATE BIO-BOSS',
+        tileColorA: '#3f3f46',
+        tileColorB: '#27272a',
+        porcelainTint: '#d6d3d1',
+        waterTint: 'rgba(101, 163, 13, 0.45)',
+        timeLimit: 95,
+        skids: 14,
+        crusts: 7,
+        slimes: 4,
+        floaters: 2,
+        clusterFloaters: 2,
+        desc: 'FINAL BOSS: Interstate bio-hazard! Regenerating Slime Streaks and twin Cluster Floaters. Hold off fire for 2s to unleash 2.2x Kegel Overcharge!'
     }
 ];
 
@@ -1026,7 +1070,9 @@ const state = {
     lastSubmittedId: null,
     selectedDrink: 'water',
     score: 0,
+    missionStartScore: 0,
     combo: 1.0,
+    maxCombo: 1.0,
     comboTimer: 0,
     bladder: 100,
     maxBladder: 100,
@@ -1036,6 +1082,12 @@ const state = {
     flushAnimTimer: 0,
     splashWarned: false,
     deployCount: 0,
+    cakesDetonated: 0,
+    kegelCharge: 0,
+    kegelBurstTimer: 0,
+    hitMarkerTimer: 0,
+    hitMarkerColor: '#ffffff',
+    bubbleRespawnTimer: 0,
     isFiring: false,
     isTouchAiming: false,
     isTouchCanvasActive: false,
@@ -1048,8 +1100,10 @@ const state = {
     elapsed: 0,
     stains: [],
     floaters: [],
+    powerups: [],
     particles: [],
     ripples: [],
+    sparkles: [],
     floatingTexts: [],
     initialTotalHP: 1,
     screenShake: 0
@@ -1095,14 +1149,17 @@ function resizeCanvas() {
     bowl.drainRy = bowl.waterRy * 0.34;
     bowl.drainYOffset = bowl.waterRy * 0.25;
 
-    // Proportionally reposition active stains & floaters on viewport resize/rotation
+    // Proportionally reposition active stains, floaters, powerups & sparkles on viewport resize/rotation
     if (prevRx > 0 && prevRy > 0 && bowl.innerRx > 0) {
         const scale = bowl.innerRx / prevRx;
+        const mapPoint = obj => {
+            const nx = (obj.x - prevCx) / prevRx;
+            const ny = (obj.y - prevCy) / prevRy;
+            obj.x = bowl.cx + nx * bowl.innerRx;
+            obj.y = bowl.cy + ny * bowl.innerRy;
+        };
         state.stains.forEach(s => {
-            const nx = (s.x - prevCx) / prevRx;
-            const ny = (s.y - prevCy) / prevRy;
-            s.x = bowl.cx + nx * bowl.innerRx;
-            s.y = bowl.cy + ny * bowl.innerRy;
+            mapPoint(s);
             s.radius *= scale;
             s.blobs.forEach(b => {
                 b.ox *= scale;
@@ -1111,11 +1168,16 @@ function resizeCanvas() {
             });
         });
         state.floaters.forEach(f => {
-            const nx = (f.x - prevCx) / prevRx;
-            const ny = (f.y - prevCy) / prevRy;
-            f.x = bowl.cx + nx * bowl.innerRx;
-            f.y = bowl.cy + ny * bowl.innerRy;
+            mapPoint(f);
             f.radius *= scale;
+        });
+        state.powerups.forEach(p => {
+            mapPoint(p);
+            p.radius *= scale;
+        });
+        state.sparkles.forEach(sp => {
+            mapPoint(sp);
+            sp.size *= scale;
         });
     }
 }
@@ -1356,6 +1418,17 @@ const LeaderboardManager = {
         });
     },
 
+    getRankTag(p) {
+        const score = Number(p.score) || 0;
+        const wins = Number(p.wins) || 0;
+        const plays = Number(p.plays) || 0;
+        if (score >= 15000 || wins >= 4) return { code: 'GEN', cls: 'bg-amber-900/70 border-amber-400 text-amber-300' };
+        if (score >= 7500 || wins >= 2) return { code: 'GNY.SGT', cls: 'bg-emerald-900/70 border-emerald-400 text-emerald-300' };
+        if (score >= 3000 || plays >= 5) return { code: 'SGT', cls: 'bg-sky-900/70 border-sky-400 text-sky-300' };
+        if (score >= 1500 || plays >= 2) return { code: 'CPL', cls: 'bg-slate-800 border-slate-500 text-slate-200' };
+        return { code: 'PVT', cls: 'bg-slate-900 border-slate-700 text-slate-400' };
+    },
+
     renderLeaderboard(agg) {
         const statsText = `📊 ${agg.totalPlays.toLocaleString()} MISSIONS PLAYED • ${agg.uniqueOperatives.toLocaleString()} OPERATIVES`;
         ['lb-stats-briefing', 'lb-stats-debrief'].forEach(id => {
@@ -1369,6 +1442,7 @@ const LeaderboardManager = {
                 const rank = idx + 1;
                 const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
                 const icon = this.DRINK_ICONS[entry.drink] || '💧';
+                const rankTag = this.getRankTag(entry);
                 const isJustSubmitted = state.lastSubmittedId && entry.bestId === state.lastSubmittedId;
                 const isCurrentPlayer = state.playerName && entry.name === state.playerName;
                 const rowClass = isJustSubmitted
@@ -1379,8 +1453,9 @@ const LeaderboardManager = {
                 const missionShort = this.escapeHtml(entry.mission.replace(/^OP:\s*/i, ''));
                 return `<tr class="${rowClass}">
                     <td class="py-1.5 pr-2 whitespace-nowrap font-bold">${rankLabel}</td>
-                    <td class="py-1.5 pr-2 max-w-[145px]">
+                    <td class="py-1.5 pr-2 max-w-[165px]">
                         <div class="flex items-center gap-1 min-w-0">
+                            <span class="shrink-0 px-1 rounded border text-[8px] sm:text-[9px] font-bold ${rankTag.cls}">${rankTag.code}</span>
                             <span class="truncate">${this.escapeHtml(entry.name)}</span>
                             <span class="shrink-0 px-1 rounded bg-slate-800 border border-slate-700 text-[9px] text-emerald-300 font-normal">${entry.plays}x</span>
                         </div>
@@ -1526,11 +1601,27 @@ function getNormalizedBowlRadius(px, py) {
     return Math.sqrt(dx * dx + dy * dy);
 }
 
+function spawnHydrationBubble() {
+    const angle = Math.random() * Math.PI * 2;
+    const rNorm = 0.25 + Math.random() * 0.55;
+    state.powerups.push({
+        type: 'bubble',
+        x: bowl.cx + Math.cos(angle) * bowl.waterRx * rNorm,
+        y: bowl.cy - bowl.waterRy * 0.1 + Math.sin(angle) * bowl.waterRy * rNorm,
+        radius: 13,
+        hp: 18,
+        maxHp: 18,
+        phase: Math.random() * Math.PI * 2
+    });
+}
+
 function spawnLevelEntities(level) {
     state.stains = [];
     state.floaters = [];
+    state.powerups = [];
     state.particles = [];
     state.ripples = [];
+    state.sparkles = [];
     state.floatingTexts = [];
 
     // Helper to pick random position on the porcelain slope (between water edge and inner rim)
@@ -1558,7 +1649,6 @@ function spawnLevelEntities(level) {
         const pos = randomSlopePos();
         const radius = 15 + Math.random() * 11;
         const maxHp = 28 + Math.random() * 14;
-        // Generate organic blob vertices
         const blobs = [];
         const count = 4 + Math.floor(Math.random() * 3);
         for (let b = 0; b < count; b++) {
@@ -1606,9 +1696,34 @@ function spawnLevelEntities(level) {
         });
     }
 
-    // 3. Spawn The Floater (Moving targets in water basin)
+    // 2B. Spawn Slime Streaks (Regenerating drifting bio-slime)
+    for (let i = 0; i < (level.slimes || 0); i++) {
+        const pos = randomSlopePos();
+        const radius = 18 + Math.random() * 6;
+        const maxHp = 58 + level.id * 10;
+        const blobs = [
+            { ox: 0, oy: -radius * 0.35, r: radius * 0.55 },
+            { ox: 0, oy: 0, r: radius * 0.65 },
+            { ox: 0, oy: radius * 0.38, r: radius * 0.48 }
+        ];
+        state.stains.push({
+            type: 'slime',
+            x: pos.x,
+            y: pos.y,
+            radius,
+            hp: maxHp,
+            maxHp,
+            blobs,
+            angle: Math.random() * Math.PI * 2,
+            driftAngle: Math.random() * Math.PI * 2,
+            beingHit: false
+        });
+    }
+
+    // 3. Spawn Floaters & Giant Cluster Floaters in water basin
+    const totalFloaters = level.floaters + (level.clusterFloaters || 0);
     for (let i = 0; i < level.floaters; i++) {
-        const angle = (i / Math.max(1, level.floaters)) * Math.PI * 2 + 0.6;
+        const angle = (i / Math.max(1, totalFloaters)) * Math.PI * 2 + 0.6;
         const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.48);
         const fy = bowl.cy - bowl.waterRy * 0.25 + Math.sin(angle) * (bowl.waterRy * 0.35);
         state.floaters.push({
@@ -1618,17 +1733,50 @@ function spawnLevelEntities(level) {
             vy: 0,
             radius: 15,
             angle: Math.random() * Math.PI,
-            hp: 80, // Can either be pushed to drain OR broken down
+            hp: 80,
             maxHp: 80,
             bobPhase: Math.random() * Math.PI * 2,
+            isCluster: false,
             sunk: false
         });
     }
 
-    // Calculate total sanitize weight
+    for (let i = 0; i < (level.clusterFloaters || 0); i++) {
+        const angle = ((level.floaters + i) / Math.max(1, totalFloaters)) * Math.PI * 2 + 1.1;
+        const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.52);
+        const fy = bowl.cy - bowl.waterRy * 0.22 + Math.sin(angle) * (bowl.waterRy * 0.38);
+        state.floaters.push({
+            x: fx,
+            y: fy,
+            vx: 0,
+            vy: 0,
+            radius: 21,
+            angle: Math.random() * Math.PI,
+            hp: 110,
+            maxHp: 110,
+            bobPhase: Math.random() * Math.PI * 2,
+            isCluster: true,
+            sunk: false
+        });
+    }
+
+    // 4. Spawn Tactical Power-Ups (1 Urinal Cake Bomb on slope + 1 Hydration Bubble in water)
+    const cakePos = randomSlopePos();
+    state.powerups.push({
+        type: 'cake',
+        x: cakePos.x,
+        y: cakePos.y,
+        radius: 16,
+        hp: 30,
+        maxHp: 30,
+        phase: 0
+    });
+    spawnHydrationBubble();
+
+    // Calculate total sanitize weight (cluster floaters include their 2x45 split children)
     let total = 0;
     state.stains.forEach(s => total += s.maxHp);
-    state.floaters.forEach(f => total += f.maxHp);
+    state.floaters.forEach(f => total += (f.isCluster ? f.maxHp + 90 : f.maxHp));
     state.initialTotalHP = Math.max(1, total);
 }
 
@@ -1637,6 +1785,10 @@ function spawnLevelEntities(level) {
 // ============================================================================
 function openBriefing(levelIdx) {
     state.levelIndex = levelIdx;
+    if (levelIdx === 0) {
+        state.missionStartScore = 0;
+        state.score = 0;
+    }
     state.screen = 'BRIEFING';
     state.isFiring = false;
     state.isTouchCanvasActive = false;
@@ -1690,10 +1842,14 @@ function startMission() {
     state.flushAnimTimer = 0;
     state.splashWarned = false;
     state.combo = 1.0;
+    state.maxCombo = 1.0;
     state.comboTimer = 0;
-    if (state.levelIndex === 0) {
-        state.score = 0;
-    }
+    state.cakesDetonated = 0;
+    state.kegelCharge = 0;
+    state.kegelBurstTimer = 0;
+    state.hitMarkerTimer = 0;
+    state.bubbleRespawnTimer = 0;
+    state.score = state.missionStartScore;
 
     spawnLevelEntities(lvl);
 
@@ -1725,7 +1881,9 @@ function getSanitationPercent() {
     let remaining = 0;
     state.stains.forEach(s => remaining += Math.max(0, s.hp));
     state.floaters.forEach(f => {
-        if (!f.sunk) remaining += Math.max(0, f.hp);
+        if (!f.sunk) {
+            remaining += Math.max(0, f.hp) + (f.isCluster ? 90 : 0);
+        }
     });
     const pct = Math.round(((state.initialTotalHP - remaining) / state.initialTotalHP) * 100);
     return Math.min(100, Math.max(0, pct));
@@ -1738,11 +1896,33 @@ function endMission(victory, reasonText) {
     updateFireButtonVisual(false);
     sfx.updateStreamSound(false, 'none', 1);
 
+    const lvl = LEVELS[state.levelIndex];
     const sanitation = getSanitationPercent();
     const fluidBonus = victory ? Math.round((state.bladder / state.maxBladder) * 1500) : 0;
     const splashPenalty = Math.round(state.splashback * 8);
 
-    state.score = Math.max(0, state.score + fluidBonus - splashPenalty);
+    const medals = [];
+    if (victory && state.splashback < 10) medals.push({ label: '🎯 DRY KHAKIS', bonus: 250 });
+    if (victory && state.timeLeft >= lvl.timeLimit * 0.45) medals.push({ label: '⚡ SPEED STREAM', bonus: 300 });
+    if (victory && state.selectedDrink === 'beer') medals.push({ label: '🍺 DRUNKEN MASTER', bonus: 350 });
+    if (state.cakesDetonated > 0) medals.push({ label: '🔵 FOAM TACTICIAN', bonus: 200 });
+    if (state.maxCombo >= 4.0) medals.push({ label: '🔥 COMBO MASTER', bonus: 250 });
+
+    const medalBonus = medals.reduce((sum, m) => sum + m.bonus, 0);
+    state.score = Math.max(0, state.score + fluidBonus + medalBonus - splashPenalty);
+
+    const medalsEl = document.getElementById('debrief-medals');
+    if (medalsEl) {
+        if (medals.length > 0) {
+            medalsEl.innerHTML = medals.map(m =>
+                `<span class="inline-block px-2 py-0.5 rounded bg-amber-950/70 border border-amber-400/60 text-amber-300 text-[10px] font-bold">${m.label} +${m.bonus}</span>`
+            ).join('');
+            medalsEl.classList.remove('hidden');
+        } else {
+            medalsEl.innerHTML = '';
+            medalsEl.classList.add('hidden');
+        }
+    }
 
     const panel = document.getElementById('debrief-panel');
     const stamp = document.getElementById('debrief-stamp');
@@ -1778,7 +1958,7 @@ function endMission(victory, reasonText) {
 
     document.getElementById('debrief-reason').textContent = reasonText;
     document.getElementById('stat-sanitation').textContent = `${sanitation}%`;
-    document.getElementById('stat-fluid-bonus').textContent = `+${fluidBonus}`;
+    document.getElementById('stat-fluid-bonus').textContent = `+${fluidBonus + medalBonus}`;
     document.getElementById('stat-splash-penalty').textContent = `-${splashPenalty}`;
     document.getElementById('stat-total-score').textContent = state.score.toLocaleString();
 
@@ -1786,7 +1966,7 @@ function endMission(victory, reasonText) {
         LeaderboardManager.submitScore({
             name: state.playerName || 'ANON OPERATIVE',
             score: state.score,
-            mission: LEVELS[state.levelIndex].name,
+            mission: lvl.name,
             drink: state.selectedDrink,
             sanitation,
             victory
@@ -1822,6 +2002,7 @@ function triggerTacticalFlush() {
             spawnParticles(s.x, s.y, '#78350f', 6, 90);
             if (s.hp <= 0) {
                 state.score += 100;
+                spawnSparkles(s.x, s.y);
                 state.stains.splice(i, 1);
             }
         }
@@ -1869,15 +2050,36 @@ function addFloatingText(x, y, text, color = '#4ade80') {
     });
 }
 
+function spawnSparkles(x, y) {
+    for (let i = 0; i < 3; i++) {
+        state.sparkles.push({
+            x: x + (Math.random() - 0.5) * 26,
+            y: y + (Math.random() - 0.5) * 26,
+            size: 6 + Math.random() * 5,
+            life: 1.4 + Math.random() * 0.4,
+            maxLife: 1.8
+        });
+    }
+}
+
+function setHitMarker(color, isKill = false) {
+    state.hitMarkerTimer = isKill ? 0.22 : 0.1;
+    state.hitMarkerColor = color;
+    sfx.playHitTick(isKill);
+}
+
 // ============================================================================
 // 8. UPDATE SIMULATION LOOP
 // ============================================================================
 function update(dt) {
     state.elapsed += dt;
 
-    // Decay screen shake
+    // Decay screen shake & hit marker
     if (state.screenShake > 0) {
         state.screenShake = Math.max(0, state.screenShake - dt * 25);
+    }
+    if (state.hitMarkerTimer > 0) {
+        state.hitMarkerTimer = Math.max(0, state.hitMarkerTimer - dt);
     }
 
     // Update particles even during debrief for smoothness
@@ -1891,12 +2093,19 @@ function update(dt) {
         if (p.life <= 0) state.particles.splice(i, 1);
     }
 
-    // Update water ripples
+    // Update water ripples & shockwaves
     for (let i = state.ripples.length - 1; i >= 0; i--) {
         const r = state.ripples[i];
-        r.r += 42 * dt;
-        r.alpha -= 1.2 * dt;
+        r.r += (r.speed || 42) * dt;
+        r.alpha -= (r.fade || 1.2) * dt;
         if (r.alpha <= 0) state.ripples.splice(i, 1);
+    }
+
+    // Update clean porcelain sparkles
+    for (let i = state.sparkles.length - 1; i >= 0; i--) {
+        const sp = state.sparkles[i];
+        sp.life -= dt;
+        if (sp.life <= 0) state.sparkles.splice(i, 1);
     }
 
     // Update floating texts
@@ -1924,13 +2133,56 @@ function update(dt) {
         state.flushAnimTimer = Math.max(0, state.flushAnimTimer - dt);
     }
 
-    // Combo decay
+    // Combo decay & maxCombo tracking
+    if (state.combo > state.maxCombo) {
+        state.maxCombo = state.combo;
+    }
     if (state.comboTimer > 0) {
         state.comboTimer -= dt;
         if (state.comboTimer <= 0) {
             state.combo = 1.0;
         }
     }
+
+    // Kegel Charge (2.0s hold-off charges 1.5s of 2.2x Overcharge Burst)
+    if (!state.isFiring) {
+        state.kegelCharge = Math.min(1, state.kegelCharge + dt / 2.0);
+        if (state.kegelBurstTimer > 0) {
+            state.kegelBurstTimer = Math.max(0, state.kegelBurstTimer - dt);
+        }
+    } else if (state.bladder > 0) {
+        if (state.kegelCharge >= 1.0) {
+            state.kegelBurstTimer = 1.5;
+            state.kegelCharge = 0;
+            sfx.playPop(740);
+            addFloatingText(width * 0.5, height * 0.72, '⚡ OVERCHARGE 2.2x!', '#22d3ee');
+        } else if (state.kegelBurstTimer > 0) {
+            state.kegelBurstTimer = Math.max(0, state.kegelBurstTimer - dt);
+        }
+    }
+
+    const burstMult = (state.isFiring && state.kegelBurstTimer > 0) ? 2.2 : 1.0;
+    const effectivePressure = drink.pressure * burstMult;
+
+    // Power-up pulse & Hydration Bubble respawn (every 16s if none active)
+    state.powerups.forEach(p => {
+        p.phase += dt * 3.5;
+    });
+    const hasBubble = state.powerups.some(p => p.type === 'bubble');
+    if (!hasBubble) {
+        state.bubbleRespawnTimer += dt;
+        if (state.bubbleRespawnTimer >= 16) {
+            state.bubbleRespawnTimer = 0;
+            spawnHydrationBubble();
+        }
+    } else {
+        state.bubbleRespawnTimer = 0;
+    }
+
+    // Reset slime hit flags before stream collision check
+    state.stains.forEach(s => {
+        if (s.type === 'slime') s.beingHit = false;
+    });
 
     // Calculate realistic stream sway + jitter based on hydration loadout
     const swayX = Math.sin(state.elapsed * drink.swayFreq) * drink.swayAmp;
@@ -1973,16 +2225,27 @@ function update(dt) {
         // Check if floater reached the central drain hole
         const distToDrain = Math.hypot(f.x - bowl.cx, f.y - drainY);
         if (distToDrain < bowl.drainRx * 0.92) {
-            f.sunk = true;
-            f.hp = 0;
-            sfx.playPop(260);
-            state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
-            state.comboTimer = 2.5;
-            const pts = Math.round(350 * state.combo);
-            state.score += pts;
-            addFloatingText(f.x, f.y, `FLOATER SUNK! +${pts}`, '#fbbf24');
-            state.ripples.push({ x: bowl.cx, y: drainY, r: 6, alpha: 0.9 });
-            DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
+            if (f.isCluster) {
+                // Giant Cluster Floaters are too wide for the drain until split
+                const pushOut = Math.atan2(f.y - drainY, f.x - bowl.cx) || 0.5;
+                f.vx = Math.cos(pushOut) * 110;
+                f.vy = Math.sin(pushOut) * 110;
+                if (Math.random() < 0.25) {
+                    addFloatingText(f.x, f.y - 12, 'SPLIT FIRST!', '#f97316');
+                }
+            } else {
+                f.sunk = true;
+                f.hp = 0;
+                sfx.playPop(260);
+                setHitMarker('#ef4444', true);
+                state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+                state.comboTimer = 2.5;
+                const pts = Math.round(350 * state.combo);
+                state.score += pts;
+                addFloatingText(f.x, f.y, `FLOATER SUNK! +${pts}`, '#fbbf24');
+                state.ripples.push({ x: bowl.cx, y: drainY, r: 6, alpha: 0.9 });
+                DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
+            }
         }
     });
 
@@ -2000,44 +2263,118 @@ function update(dt) {
 
         let hitAnyTarget = false;
 
-        // 1. Check collision with Floaters in basin
-        for (let i = 0; i < state.floaters.length; i++) {
-            const f = state.floaters[i];
-            if (f.sunk) continue;
-            const dist = Math.hypot(ax - f.x, ay - f.y);
-            if (dist <= f.radius + 10) {
+        // 0. Check collision with Tactical Power-Ups (Urinal Cake Bomb & Hydration Bubble)
+        for (let i = state.powerups.length - 1; i >= 0; i--) {
+            const p = state.powerups[i];
+            const dist = Math.hypot(ax - p.x, ay - p.y);
+            if (dist <= p.radius + 9) {
                 hitAnyTarget = true;
                 hitSurface = 'stain';
-
-                // Push floater away from stream impact vector (toward drain)
-                const pushAngle = Math.atan2(f.y - (height + 40), f.x - bowl.cx);
-                // Steer slightly toward drain to make herding intuitive & fun
-                const toDrainAngle = Math.atan2(drainY - f.y, bowl.cx - f.x);
-                const blendAngle = toDrainAngle * 0.65 + pushAngle * 0.35;
-
-                f.vx += Math.cos(blendAngle) * 210 * drink.pressure * dt;
-                f.vy += Math.sin(blendAngle) * 210 * drink.pressure * dt;
-                f.hp -= 24 * drink.pressure * dt;
-
-                state.comboTimer = 2.0;
-                if (Math.random() < 0.35) {
-                    spawnParticles(ax, ay, '#92400e', 2, 85);
+                p.hp -= 46 * effectivePressure * dt;
+                setHitMarker('#38bdf8', false);
+                if (Math.random() < 0.45) {
+                    spawnParticles(ax, ay, p.type === 'cake' ? '#38bdf8' : '#bae6fd', 2, 95);
                 }
 
-                if (f.hp <= 0) {
-                    f.sunk = true;
-                    sfx.playPop(310);
-                    state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
-                    const pts = Math.round(300 * state.combo);
-                    state.score += pts;
-                    addFloatingText(f.x, f.y, `OBLITERATED! +${pts}`, '#4ade80');
-                    DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
+                if (p.hp <= 0) {
+                    state.powerups.splice(i, 1);
+                    setHitMarker('#ef4444', true);
+                    if (p.type === 'cake') {
+                        sfx.playPop(220);
+                        state.screenShake = 6;
+                        state.cakesDetonated += 1;
+                        state.splashback = Math.max(0, state.splashback - 25);
+                        state.score += 200;
+                        state.ripples.push({ x: p.x, y: p.y, r: 10, alpha: 0.95, speed: 240, fade: 1.8, color: 'rgba(56, 189, 248,' });
+                        addFloatingText(p.x, p.y, '🔵 FOAM BLAST! -25% SPLASH', '#38bdf8');
+                        for (let si = state.stains.length - 1; si >= 0; si--) {
+                            const st = state.stains[si];
+                            if (Math.hypot(st.x - p.x, st.y - p.y) <= 140) {
+                                st.hp -= 50;
+                                spawnParticles(st.x, st.y, '#38bdf8', 5, 110);
+                                if (st.hp <= 0) {
+                                    state.stains.splice(si, 1);
+                                    spawnSparkles(st.x, st.y);
+                                    state.score += st.type === 'crust' ? 250 : 120;
+                                }
+                            }
+                        }
+                    } else {
+                        sfx.playPop(680);
+                        state.bladder = Math.min(state.maxBladder, state.bladder + state.maxBladder * 0.20);
+                        state.score += 150;
+                        spawnParticles(p.x, p.y, '#7dd3fc', 10, 120);
+                        addFloatingText(p.x, p.y, '💧 +20% TANK REFILL!', '#7dd3fc');
+                    }
                 }
                 break;
             }
         }
 
-        // 2. Check collision with Stains (Surface Skids & Baked-On Crust)
+        // 1. Check collision with Floaters in basin
+        if (!hitAnyTarget) {
+            for (let i = 0; i < state.floaters.length; i++) {
+                const f = state.floaters[i];
+                if (f.sunk) continue;
+                const dist = Math.hypot(ax - f.x, ay - f.y);
+                if (dist <= f.radius + 10) {
+                    hitAnyTarget = true;
+                    hitSurface = 'stain';
+                    setHitMarker(f.isCluster ? '#fb923c' : '#ffffff', false);
+
+                    const pushAngle = Math.atan2(f.y - (height + 40), f.x - bowl.cx);
+                    const toDrainAngle = Math.atan2(drainY - f.y, bowl.cx - f.x);
+                    const blendAngle = toDrainAngle * 0.65 + pushAngle * 0.35;
+
+                    f.vx += Math.cos(blendAngle) * 210 * effectivePressure * dt;
+                    f.vy += Math.sin(blendAngle) * 210 * effectivePressure * dt;
+                    f.hp -= 24 * effectivePressure * dt;
+
+                    state.comboTimer = 2.0;
+                    if (Math.random() < 0.35) {
+                        spawnParticles(ax, ay, '#92400e', 2, 85);
+                    }
+
+                    if (f.hp <= 0) {
+                        f.sunk = true;
+                        setHitMarker('#ef4444', true);
+                        if (f.isCluster) {
+                            sfx.playCrunch();
+                            state.screenShake = 5;
+                            state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+                            const pts = Math.round(250 * state.combo);
+                            state.score += pts;
+                            addFloatingText(f.x, f.y, `SPLIT! +${pts}`, '#fb923c');
+                            [-1, 1].forEach(dir => {
+                                state.floaters.push({
+                                    x: f.x + dir * 16,
+                                    y: f.y,
+                                    vx: dir * 75,
+                                    vy: (Math.random() - 0.5) * 60,
+                                    radius: 12,
+                                    angle: Math.random() * Math.PI,
+                                    hp: 45,
+                                    maxHp: 45,
+                                    bobPhase: Math.random() * Math.PI * 2,
+                                    isCluster: false,
+                                    sunk: false
+                                });
+                            });
+                        } else {
+                            sfx.playPop(310);
+                            state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
+                            const pts = Math.round(300 * state.combo);
+                            state.score += pts;
+                            addFloatingText(f.x, f.y, `OBLITERATED! +${pts}`, '#4ade80');
+                            DrillSergeant.speak('floater_1', { cooldownMs: 4000 });
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        // 2. Check collision with Stains (Surface Skids, Baked-On Crust & Slime Streaks)
         if (!hitAnyTarget) {
             for (let i = state.stains.length - 1; i >= 0; i--) {
                 const s = state.stains[i];
@@ -2046,17 +2383,21 @@ function update(dt) {
                     hitAnyTarget = true;
                     hitSurface = 'stain';
                     state.comboTimer = 2.2;
+                    if (s.type === 'slime') s.beingHit = true;
+                    setHitMarker(s.type === 'crust' ? '#fb923c' : '#ffffff', false);
 
-                    const dmg = 46 * drink.pressure * dt;
+                    const dmg = 46 * effectivePressure * dt;
                     s.hp -= dmg;
 
                     if (Math.random() < 0.45) {
-                        const particleCol = s.type === 'crust' ? '#451a03' : '#78350f';
+                        const particleCol = s.type === 'crust' ? '#451a03' : (s.type === 'slime' ? '#4d7c0f' : '#78350f');
                         spawnParticles(ax, ay, particleCol, 2, 95);
                     }
 
                     if (s.hp <= 0) {
                         state.stains.splice(i, 1);
+                        spawnSparkles(s.x, s.y);
+                        setHitMarker('#ef4444', true);
                         if (s.type === 'crust') {
                             sfx.playCrunch();
                             state.screenShake = 4;
@@ -2065,7 +2406,7 @@ function update(dt) {
                             sfx.playPop(480);
                         }
                         state.combo = Math.min(10.0, +(state.combo + 0.5).toFixed(1));
-                        const basePts = s.type === 'crust' ? 250 : 120;
+                        const basePts = s.type === 'crust' ? 250 : (s.type === 'slime' ? 180 : 120);
                         const pts = Math.round(basePts * state.combo);
                         state.score += pts;
                         addFloatingText(s.x, s.y, `+${pts}`, s.type === 'crust' ? '#fbbf24' : '#4ade80');
@@ -2107,7 +2448,7 @@ function update(dt) {
             if (Math.random() < 0.4) spawnParticles(ax, ay, drink.splashColor, 1, 65);
         }
 
-        sfx.updateStreamSound(true, hitSurface, drink.pressure);
+        sfx.updateStreamSound(true, hitSurface, effectivePressure);
 
         if (state.splashback >= 60 && !state.splashWarned) {
             state.splashWarned = true;
@@ -2124,6 +2465,21 @@ function update(dt) {
     } else {
         sfx.updateStreamSound(false, 'none', 1);
     }
+
+    // Regenerate & drift un-hit Slime Streaks along the porcelain slope
+    state.stains.forEach(s => {
+        if (s.type !== 'slime' || s.beingHit) return;
+        s.hp = Math.min(s.maxHp, s.hp + 5 * dt);
+        const nextX = s.x + Math.cos(s.driftAngle) * 7 * dt;
+        const nextY = s.y + Math.sin(s.driftAngle) * 7 * dt;
+        const rNorm = getNormalizedBowlRadius(nextX, nextY);
+        if (rNorm >= 0.56 && rNorm <= 0.92) {
+            s.x = nextX;
+            s.y = nextY;
+        } else {
+            s.driftAngle += Math.PI * 0.75;
+        }
+    });
 
     // Check Victory Condition (100% Bowl Sanitation)
     const activeFloaters = state.floaters.filter(f => !f.sunk).length;
@@ -2167,6 +2523,20 @@ function updateHUD() {
     // Score & Combo
     document.getElementById('hud-score').textContent = String(state.score).padStart(5, '0');
     document.getElementById('hud-combo').textContent = `COMBO ${state.combo.toFixed(1)}x`;
+
+    // Pressure / Kegel Charge indicator
+    const drink = DRINK_LOADOUTS[state.selectedDrink];
+    const pressureEl = document.getElementById('hud-pressure-lbl');
+    if (state.isFiring && state.kegelBurstTimer > 0) {
+        pressureEl.textContent = '⚡ BURST 2.2x!';
+        pressureEl.className = 'shrink-0 text-cyan-300 font-bold';
+    } else if (state.kegelCharge >= 1.0) {
+        pressureEl.textContent = '⚡ BURST READY!';
+        pressureEl.className = 'shrink-0 text-emerald-300 font-bold';
+    } else {
+        pressureEl.textContent = `PWR: ${drink.pressure.toFixed(1)}x (${Math.round(state.kegelCharge * 100)}%)`;
+        pressureEl.className = 'shrink-0';
+    }
 
     // Bladder Bar
     const bladderPct = Math.round((state.bladder / state.maxBladder) * 100);
@@ -2322,7 +2692,7 @@ function drawToiletBowl(lvl) {
 }
 
 function drawStainsAndFloaters() {
-    // 1. Draw Stains (Surface Skids & Baked-On Crust)
+    // 1. Draw Stains (Surface Skids, Baked-On Crust & Slime Streaks)
     state.stains.forEach(s => {
         const hpRatio = Math.max(0.15, s.hp / s.maxHp);
         ctx.save();
@@ -2346,6 +2716,21 @@ function drawStainsAndFloaters() {
             ctx.arc(0, 0, s.radius * 0.42, 0, Math.PI * 2);
             ctx.fillStyle = '#451a03';
             ctx.fill();
+        } else if (s.type === 'slime') {
+            // Toxic regenerating Slime Streak
+            ctx.globalAlpha = 0.5 + hpRatio * 0.5;
+            const scale = 0.6 + hpRatio * 0.4;
+            ctx.scale(scale, scale);
+
+            s.blobs.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = '#4d7c0f';
+                ctx.fill();
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = '#a3e635';
+                ctx.stroke();
+            });
         } else {
             // Baked-On Crust: heavy armored jagged dark-brown/ochre cluster + mini armor bar
             s.blobs.forEach(b => {
@@ -2385,7 +2770,45 @@ function drawStainsAndFloaters() {
         ctx.restore();
     });
 
-    // 2. Draw Floaters (Bobbing in basin water)
+    // 1B. Draw In-Bowl Tactical Power-Ups (Urinal Cake Bomb & Hydration Bubble)
+    state.powerups.forEach(p => {
+        const pulse = 1 + Math.sin(p.phase) * 0.08;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(pulse, pulse);
+
+        if (p.type === 'cake') {
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#0284c7';
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#7dd3fc';
+            ctx.stroke();
+
+            ctx.font = 'bold 12px "Share Tech Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('💣', 0, 1);
+        } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.32)';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#bae6fd';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(-p.radius * 0.32, -p.radius * 0.32, p.radius * 0.25, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.fill();
+        }
+        ctx.restore();
+    });
+
+    // 2. Draw Floaters (Normal & Giant Cluster Floaters in basin water)
     state.floaters.forEach(f => {
         if (f.sunk) return;
         const bobOffset = Math.sin(f.bobPhase) * 2.5;
@@ -2396,37 +2819,63 @@ function drawStainsAndFloaters() {
         // Water wake ring around floater
         ctx.beginPath();
         ctx.ellipse(0, 0, f.radius * 1.45, f.radius * 0.9, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = f.isCluster ? 'rgba(251, 146, 60, 0.7)' : 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = f.isCluster ? 2 : 1.5;
         ctx.stroke();
 
         // Capsule/Log silhouette
         ctx.beginPath();
         ctx.roundRect(-f.radius * 1.1, -f.radius * 0.55, f.radius * 2.2, f.radius * 1.1, 8);
-        ctx.fillStyle = '#5c2d16';
+        ctx.fillStyle = f.isCluster ? '#451a03' : '#5c2d16';
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#291206';
+        ctx.strokeStyle = f.isCluster ? '#fb923c' : '#291206';
         ctx.stroke();
 
         // Highlight ridge
         ctx.beginPath();
         ctx.roundRect(-f.radius * 0.7, -f.radius * 0.25, f.radius * 1.4, f.radius * 0.28, 4);
-        ctx.fillStyle = '#854d27';
+        ctx.fillStyle = f.isCluster ? '#9a3412' : '#854d27';
         ctx.fill();
+
+        if (f.isCluster) {
+            ctx.rotate(-f.angle);
+            const hpRatio = Math.max(0.1, f.hp / f.maxHp);
+            const barW = 34;
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(-barW / 2, -f.radius - 10, barW, 4);
+            ctx.fillStyle = '#fb923c';
+            ctx.fillRect(-barW / 2, -f.radius - 10, barW * hpRatio, 4);
+        }
 
         ctx.restore();
     });
 }
 
 function drawRipplesAndParticles() {
-    // Ripples
+    // Ripples & Shockwaves
     state.ripples.forEach(r => {
         ctx.save();
         ctx.beginPath();
         ctx.ellipse(r.x, r.y, r.r * 1.2, r.r * 0.85, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(224, 242, 254, ${r.alpha})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = `${r.color || 'rgba(224, 242, 254,'} ${r.alpha})`;
+        ctx.lineWidth = r.speed ? 4 : 2;
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // Porcelain Clean Sparkles
+    state.sparkles.forEach(sp => {
+        const alpha = Math.max(0, sp.life / sp.maxLife);
+        const s = sp.size * (0.6 + Math.sin(state.elapsed * 10 + sp.x) * 0.3);
+        ctx.save();
+        ctx.translate(sp.x, sp.y);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
+        ctx.moveTo(0, -s); ctx.lineTo(0, s);
         ctx.stroke();
         ctx.restore();
     });
@@ -2445,6 +2894,7 @@ function drawRipplesAndParticles() {
 
 function drawLiquidStreamAndReticle() {
     const drink = DRINK_LOADOUTS[state.selectedDrink];
+    const isOvercharged = state.isFiring && state.kegelBurstTimer > 0;
 
     // Draw Liquid Arc Stream when firing
     if (state.screen === 'PLAYING' && state.isFiring && state.bladder > 0) {
@@ -2464,22 +2914,22 @@ function drawLiquidStreamAndReticle() {
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
-        ctx.strokeStyle = drink.colorGlow;
-        ctx.lineWidth = 14 + drink.pressure * 3;
+        ctx.strokeStyle = isOvercharged ? 'rgba(34, 211, 238, 0.85)' : drink.colorGlow;
+        ctx.lineWidth = (14 + drink.pressure * 3) * (isOvercharged ? 1.35 : 1);
         ctx.stroke();
 
         // Inner High-Velocity Core Stream
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
-        ctx.strokeStyle = drink.colorCore;
-        ctx.lineWidth = 5 + drink.pressure * 1.5;
+        ctx.strokeStyle = isOvercharged ? '#ecfeff' : drink.colorCore;
+        ctx.lineWidth = (5 + drink.pressure * 1.5) * (isOvercharged ? 1.3 : 1);
         ctx.stroke();
 
         // Impact Splash Ring
         ctx.beginPath();
-        ctx.arc(endX, endY, 7 + Math.random() * 5, 0, Math.PI * 2);
-        ctx.fillStyle = drink.colorCore;
+        ctx.arc(endX, endY, (7 + Math.random() * 5) * (isOvercharged ? 1.4 : 1), 0, Math.PI * 2);
+        ctx.fillStyle = isOvercharged ? '#22d3ee' : drink.colorCore;
         ctx.fill();
         ctx.restore();
     }
@@ -2512,10 +2962,19 @@ function drawLiquidStreamAndReticle() {
         ctx.save();
         ctx.translate(rx, ry);
 
+        // Kegel Charge ring around crosshair when charging/ready
+        if (state.kegelCharge > 0.05 && !state.isFiring) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius + 5, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * state.kegelCharge);
+            ctx.strokeStyle = state.kegelCharge >= 1 ? '#22d3ee' : 'rgba(56, 189, 248, 0.55)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
         // Outer tactical ring
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = state.isFiring ? '#fbbf24' : '#4ade80';
+        ctx.strokeStyle = isOvercharged ? '#22d3ee' : (state.isFiring ? '#fbbf24' : '#4ade80');
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -2527,6 +2986,20 @@ function drawLiquidStreamAndReticle() {
         ctx.moveTo(0, -radius - tick); ctx.lineTo(0, -radius + 4);
         ctx.moveTo(0, radius - 4); ctx.lineTo(0, radius + tick);
         ctx.stroke();
+
+        // FPS X Hit-Markers
+        if (state.hitMarkerTimer > 0) {
+            const hmIn = 5;
+            const hmOut = 12;
+            ctx.strokeStyle = state.hitMarkerColor;
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.moveTo(-hmOut, -hmOut); ctx.lineTo(-hmIn, -hmIn);
+            ctx.moveTo(hmIn, -hmIn); ctx.lineTo(hmOut, -hmOut);
+            ctx.moveTo(-hmOut, hmOut); ctx.lineTo(-hmIn, hmIn);
+            ctx.moveTo(hmIn, hmIn); ctx.lineTo(hmOut, hmOut);
+            ctx.stroke();
+        }
 
         // Center dot
         ctx.beginPath();
@@ -2823,6 +3296,12 @@ document.getElementById('btn-retry').addEventListener('click', () => {
 
 document.getElementById('btn-next-level').addEventListener('click', () => {
     const nextIdx = (state.levelIndex + 1) % LEVELS.length;
+    if (nextIdx === 0) {
+        state.missionStartScore = 0;
+        state.score = 0;
+    } else {
+        state.missionStartScore = state.score;
+    }
     openBriefing(nextIdx);
 });
 
