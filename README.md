@@ -1,10 +1,15 @@
 # Call of Doody: Porcelain Warfare
 
-A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural Web Audio sound effects, 3 missions, and 4 tactical hydration loadouts.
+A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural Web Audio sound effects, 3 missions, 4 tactical hydration loadouts, and a persistent global leaderboard.
 
 ## Play Online
 
 **[Play Live on GitHub Pages](https://davidhughes750.github.io/call-of-doody-porcelain-warfare/)**
+
+## Features
+
+- **Operative Callsign Prompt**: Enter your callsign on the home briefing screen before deploying (saved automatically across sessions).
+- **Persistent Global Leaderboard**: Tracks top global scores across sessions and devices, displayed on both the home briefing screen and mission debrief report.
 
 ## Missions
 

@@ -24,6 +24,11 @@
             -webkit-user-select: none;
         }
 
+        input, textarea {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
         body, html {
             margin: 0;
             padding: 0;
@@ -195,8 +200,9 @@
             <div class="w-full h-3 bg-slate-900 rounded overflow-hidden border border-slate-700">
                 <div id="hud-sanitation-bar" class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-150" style="width: 0%"></div>
             </div>
-            <div class="flex justify-between items-center mt-1.5 text-[11px] text-slate-400">
+            <div class="flex justify-between items-center mt-1.5 text-[11px] text-slate-400 gap-2">
                 <span id="hud-targets-left">HOSTILES: 0</span>
+                <span id="hud-operative-name" class="text-emerald-300 font-bold truncate max-w-[110px]">OP: ---</span>
                 <span id="hud-loadout-badge" class="text-amber-300 uppercase">H2O STD</span>
             </div>
         </div>
@@ -289,10 +295,30 @@
                 </div>
             </div>
 
+            <!-- Operative Callsign Input -->
+            <div class="mb-4">
+                <label for="input-player-name" class="block text-xs text-emerald-400 font-bold tracking-wider mb-1.5 uppercase">
+                    1. ENTER OPERATIVE CALLSIGN:
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <input
+                        id="input-player-name"
+                        type="text"
+                        maxlength="16"
+                        autocomplete="nickname"
+                        placeholder="ENTER YOUR NAME (E.G. SGT. FLUSH)..."
+                        class="flex-1 bg-slate-950/90 border border-emerald-500/50 focus:border-emerald-400 focus:outline-none rounded px-3 py-2 text-sm text-emerald-300 placeholder-slate-500 uppercase tracking-wider font-bold"
+                    />
+                </div>
+                <div id="name-error-msg" class="hidden text-xs text-red-400 font-bold mt-1 animate-pulse-fast">
+                    ⚠ CALLSIGN REQUIRED: Enter your operative name before deploying!
+                </div>
+            </div>
+
             <!-- Tactical Hydration Selector -->
             <div class="mb-5">
                 <div class="text-xs text-emerald-400 font-bold tracking-wider mb-2 uppercase">
-                    1. SELECT TACTICAL HYDRATION LOADOUT:
+                    2. SELECT TACTICAL HYDRATION LOADOUT:
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="drink-selector">
                     <div class="drink-card selected rounded p-2.5 flex flex-col justify-between" data-drink="water">
@@ -336,12 +362,43 @@
             <button id="btn-deploy" class="tac-btn w-full py-3.5 rounded stencil-font text-lg sm:text-xl tracking-wider">
                 🎯 DEPLOY TO PORCELAIN
             </button>
+
+            <!-- Global Tactical Leaderboard (Home Screen) -->
+            <div class="mt-4 bg-slate-950/85 border border-emerald-500/30 rounded p-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <div class="text-xs font-bold text-amber-400 tracking-wider uppercase">
+                        🏆 GLOBAL TACTICAL LEADERBOARD
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="lb-status-briefing" class="text-[10px] text-emerald-400 uppercase">● SYNCING...</span>
+                        <button id="btn-refresh-lb" type="button" class="tac-btn px-2 py-0.5 rounded text-[10px]">
+                            ↻ REFRESH
+                        </button>
+                    </div>
+                </div>
+                <div class="max-h-44 overflow-y-auto">
+                    <table class="w-full text-left text-[11px] border-collapse">
+                        <thead>
+                            <tr class="text-slate-400 border-b border-slate-800 uppercase">
+                                <th class="py-1 pr-2">RANK</th>
+                                <th class="py-1 pr-2">OPERATIVE</th>
+                                <th class="py-1 pr-2 hidden sm:table-cell">MISSION</th>
+                                <th class="py-1 pr-2">LOADOUT</th>
+                                <th class="py-1 text-right">SCORE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body-briefing" class="divide-y divide-slate-800/70">
+                            <tr><td colspan="5" class="py-2 text-center text-slate-400">Loading tactical standings...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- MODAL: MISSION DEBRIEF (VICTORY / COURT MARTIAL) -->
-    <div id="modal-debrief" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
-        <div class="hud-panel max-w-md w-full p-6 border-2 text-center" id="debrief-panel">
+    <div id="modal-debrief" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-sm p-3 overflow-y-auto">
+        <div class="hud-panel max-w-lg w-full p-5 sm:p-6 border-2 text-center my-auto" id="debrief-panel">
             <div id="debrief-stamp" class="inline-block border-2 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase">
                 MISSION REPORT
             </div>
@@ -350,7 +407,7 @@
                 All hostiles neutralized. Janitorial command commends your precision.
             </p>
 
-            <div class="bg-slate-950/90 border border-slate-800 rounded p-3 mb-5 text-left space-y-1.5 text-xs sm:text-sm">
+            <div class="bg-slate-950/90 border border-slate-800 rounded p-3 mb-4 text-left space-y-1.5 text-xs sm:text-sm">
                 <div class="flex justify-between">
                     <span class="text-slate-400">BOWL SANITATION:</span>
                     <span id="stat-sanitation" class="font-bold text-emerald-400">100%</span>
@@ -366,6 +423,30 @@
                 <div class="flex justify-between border-t border-slate-800 pt-1.5 text-base">
                     <span class="text-slate-200 font-bold">TOTAL SCORE:</span>
                     <span id="stat-total-score" class="stencil-font text-amber-400">0</span>
+                </div>
+            </div>
+
+            <!-- Global Standings (Mission Debrief) -->
+            <div class="bg-slate-950/90 border border-emerald-500/30 rounded p-3 mb-4 text-left">
+                <div class="flex justify-between items-center gap-2 mb-2">
+                    <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">🏆 GLOBAL STANDINGS</span>
+                    <span id="lb-status-debrief" class="text-[10px] text-emerald-400 uppercase">● SYNCING...</span>
+                </div>
+                <div class="max-h-40 overflow-y-auto">
+                    <table class="w-full text-left text-[11px] border-collapse">
+                        <thead>
+                            <tr class="text-slate-400 border-b border-slate-800 uppercase">
+                                <th class="py-1 pr-2">RANK</th>
+                                <th class="py-1 pr-2">OPERATIVE</th>
+                                <th class="py-1 pr-2 hidden sm:table-cell">MISSION</th>
+                                <th class="py-1 pr-2">LOADOUT</th>
+                                <th class="py-1 text-right">SCORE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body-debrief" class="divide-y divide-slate-800/70">
+                            <tr><td colspan="5" class="py-2 text-center text-slate-400">Syncing global standings...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -735,6 +816,8 @@ resizeCanvas();
 const state = {
     screen: 'BRIEFING', // BRIEFING, PLAYING, DEBRIEF
     levelIndex: 0,
+    playerName: '',
+    lastSubmittedId: null,
     selectedDrink: 'water',
     score: 0,
     combo: 1.0,
@@ -758,6 +841,277 @@ const state = {
     floatingTexts: [],
     initialTotalHP: 1,
     screenShake: 0
+};
+
+// ============================================================================
+// 3B. PERSISTENT GLOBAL LEADERBOARD MANAGER (Cloud + LocalStorage Sync)
+// ============================================================================
+const LeaderboardManager = {
+    RESTFUL_OBJ_URL: 'https://api.restful-api.dev/objects/ff808181a09d98f701a1f592debc7b76',
+    NTFY_TOPIC_URL: 'https://ntfy.sh/cod_porcelain_warfare_lb_d750_v1',
+    LOCAL_LB_KEY: 'cod_porcelain_leaderboard_v1',
+    LOCAL_NAME_KEY: 'cod_porcelain_callsign_v1',
+    DRINK_ICONS: { water: '💧', coffee: '☕', energy: '⚡', beer: '🍺' },
+    DEFAULT_SEED_ENTRIES: [
+        { id: 'seed-1', name: 'CPT. PLUNGER', score: 1800, mission: 'OP: TACO TUESDAY', drink: 'coffee', sanitation: 100, victory: true, ts: 1700000001 },
+        { id: 'seed-2', name: 'SGT. BRISTLE', score: 1250, mission: 'OP: TACO TUESDAY', drink: 'water', sanitation: 100, victory: true, ts: 1700000002 },
+        { id: 'seed-3', name: 'PVT. SPLASH', score: 650, mission: 'OP: TACO TUESDAY', drink: 'beer', sanitation: 72, victory: false, ts: 1700000003 }
+    ],
+
+    escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    sanitizeEntry(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        const id = String(raw.id || '').trim();
+        const name = String(raw.name || '').trim().toUpperCase().slice(0, 16);
+        const score = Number(raw.score);
+        if (!id || !name || !Number.isFinite(score) || score < 0) return null;
+        return {
+            id,
+            name,
+            score: Math.round(score),
+            mission: String(raw.mission || 'OP: TACO TUESDAY').slice(0, 32),
+            drink: this.DRINK_ICONS[raw.drink] ? raw.drink : 'water',
+            sanitation: Math.min(100, Math.max(0, Math.round(Number(raw.sanitation) || 0))),
+            victory: Boolean(raw.victory),
+            ts: Number(raw.ts) || 0
+        };
+    },
+
+    mergeEntries(...lists) {
+        const byId = new Map();
+        lists.forEach(list => {
+            if (!Array.isArray(list)) return;
+            list.forEach(item => {
+                const clean = this.sanitizeEntry(item);
+                if (clean && !byId.has(clean.id)) {
+                    byId.set(clean.id, clean);
+                }
+            });
+        });
+        return Array.from(byId.values())
+            .sort((a, b) => (b.score - a.score) || (b.sanitation - a.sanitation) || (a.ts - b.ts))
+            .slice(0, 50);
+    },
+
+    getLocalEntries() {
+        try {
+            const raw = localStorage.getItem(this.LOCAL_LB_KEY);
+            if (!raw) return [...this.DEFAULT_SEED_ENTRIES];
+            const parsed = JSON.parse(raw);
+            return this.mergeEntries(parsed, this.DEFAULT_SEED_ENTRIES);
+        } catch {
+            return [...this.DEFAULT_SEED_ENTRIES];
+        }
+    },
+
+    saveLocalEntries(entries) {
+        try {
+            localStorage.setItem(this.LOCAL_LB_KEY, JSON.stringify(entries));
+        } catch {
+            // Ignore storage quota errors
+        }
+    },
+
+    getSavedCallsign() {
+        try {
+            return (localStorage.getItem(this.LOCAL_NAME_KEY) || '').trim().toUpperCase().slice(0, 16);
+        } catch {
+            return '';
+        }
+    },
+
+    saveCallsign(name) {
+        try {
+            localStorage.setItem(this.LOCAL_NAME_KEY, name);
+        } catch {
+            // Ignore storage quota errors
+        }
+    },
+
+    setStatus(text, colorClass = 'text-emerald-400') {
+        ['lb-status-briefing', 'lb-status-debrief'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = text;
+            el.className = `text-[10px] uppercase ${colorClass}`;
+        });
+    },
+
+    renderLeaderboard(entries) {
+        const top = entries.slice(0, 10);
+        const rowsHtml = top.length
+            ? top.map((entry, idx) => {
+                const rank = idx + 1;
+                const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+                const icon = this.DRINK_ICONS[entry.drink] || '💧';
+                const isNew = state.lastSubmittedId && entry.id === state.lastSubmittedId;
+                const rowClass = isNew
+                    ? 'bg-emerald-900/45 text-emerald-200 font-bold'
+                    : (rank === 1 ? 'text-amber-300' : 'text-slate-200');
+                const missionShort = this.escapeHtml(entry.mission.replace(/^OP:\s*/i, ''));
+                return `<tr class="${rowClass}">
+                    <td class="py-1.5 pr-2 whitespace-nowrap font-bold">${rankLabel}</td>
+                    <td class="py-1.5 pr-2 truncate max-w-[120px]">${this.escapeHtml(entry.name)}</td>
+                    <td class="py-1.5 pr-2 hidden sm:table-cell text-slate-400 truncate max-w-[130px]">${missionShort}</td>
+                    <td class="py-1.5 pr-2 whitespace-nowrap">${icon} <span class="text-slate-400 text-[10px]">${entry.sanitation}%</span></td>
+                    <td class="py-1.5 text-right font-bold text-amber-400 whitespace-nowrap">${entry.score.toLocaleString()}</td>
+                </tr>`;
+            }).join('')
+            : '<tr><td colspan="5" class="py-2 text-center text-slate-400">No deployments recorded yet.</td></tr>';
+
+        ['leaderboard-body-briefing', 'leaderboard-body-debrief'].forEach(id => {
+            const tbody = document.getElementById(id);
+            if (tbody) tbody.innerHTML = rowsHtml;
+        });
+    },
+
+    async fetchRestfulEntries() {
+        const res = await fetch(this.RESTFUL_OBJ_URL, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store'
+        });
+        if (!res.ok) throw new Error(`RESTful GET ${res.status}`);
+        const json = await res.json();
+        return Array.isArray(json?.data?.entries) ? json.data.entries : [];
+    },
+
+    async putRestfulEntries(entries) {
+        const res = await fetch(this.RESTFUL_OBJ_URL, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                name: 'cod-porcelain-warfare-leaderboard',
+                data: { entries }
+            })
+        });
+        if (!res.ok) throw new Error(`RESTful PUT ${res.status}`);
+    },
+
+    async fetchNtfyEntries() {
+        const res = await fetch(`${this.NTFY_TOPIC_URL}/json?poll=1&since=all`, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+        if (!res.ok) throw new Error(`ntfy GET ${res.status}`);
+        const text = await res.text();
+        const entries = [];
+        text.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            try {
+                const evt = JSON.parse(trimmed);
+                if (evt.event === 'message' && typeof evt.message === 'string') {
+                    const parsed = JSON.parse(evt.message);
+                    entries.push(parsed);
+                }
+            } catch {
+                // Ignore malformed lines
+            }
+        });
+        return entries;
+    },
+
+    async syncLeaderboard() {
+        const localEntries = this.getLocalEntries();
+        this.renderLeaderboard(localEntries);
+        this.setStatus('● SYNCING...', 'text-amber-300');
+
+        const [restfulRes, ntfyRes] = await Promise.allSettled([
+            this.fetchRestfulEntries(),
+            this.fetchNtfyEntries()
+        ]);
+
+        const restfulEntries = restfulRes.status === 'fulfilled' ? restfulRes.value : [];
+        const ntfyEntries = ntfyRes.status === 'fulfilled' ? ntfyRes.value : [];
+        const anyCloudOk = restfulRes.status === 'fulfilled' || ntfyRes.status === 'fulfilled';
+
+        const merged = this.mergeEntries(localEntries, restfulEntries, ntfyEntries, this.DEFAULT_SEED_ENTRIES);
+        this.saveLocalEntries(merged);
+        this.renderLeaderboard(merged);
+
+        if (restfulRes.status === 'fulfilled') {
+            const remoteIds = new Set(restfulEntries.map(e => e && e.id));
+            const needsPut = merged.some(e => !remoteIds.has(e.id));
+            if (needsPut) {
+                try {
+                    await this.putRestfulEntries(merged);
+                } catch {
+                    // Best effort consolidation
+                }
+            }
+        }
+
+        if (anyCloudOk) {
+            this.setStatus('● GLOBAL CLOUD LIVE', 'text-emerald-400');
+        } else {
+            this.setStatus('● LOCAL CACHE (OFFLINE)', 'text-amber-400');
+        }
+    },
+
+    async submitScore({ name, score, mission, drink, sanitation, victory }) {
+        const entry = this.sanitizeEntry({
+            id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+            name,
+            score,
+            mission,
+            drink,
+            sanitation,
+            victory,
+            ts: Date.now()
+        });
+        if (!entry) return;
+
+        state.lastSubmittedId = entry.id;
+        const localUpdated = this.mergeEntries([entry], this.getLocalEntries());
+        this.saveLocalEntries(localUpdated);
+        this.renderLeaderboard(localUpdated);
+        this.setStatus('● SAVING SCORE...', 'text-amber-300');
+
+        const postPromise = fetch(this.NTFY_TOPIC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(entry)
+        });
+
+        const [restfulRes, ntfyRes, postRes] = await Promise.allSettled([
+            this.fetchRestfulEntries(),
+            this.fetchNtfyEntries(),
+            postPromise
+        ]);
+
+        const restfulEntries = restfulRes.status === 'fulfilled' ? restfulRes.value : [];
+        const ntfyEntries = ntfyRes.status === 'fulfilled' ? ntfyRes.value : [];
+        const merged = this.mergeEntries([entry], localUpdated, restfulEntries, ntfyEntries);
+
+        this.saveLocalEntries(merged);
+        this.renderLeaderboard(merged);
+
+        let cloudSaved = postRes.status === 'fulfilled' && postRes.value.ok;
+        try {
+            await this.putRestfulEntries(merged);
+            cloudSaved = true;
+        } catch {
+            // Keep ntfy / local persistence if RESTful PUT fails
+        }
+
+        if (cloudSaved || restfulRes.status === 'fulfilled' || ntfyRes.status === 'fulfilled') {
+            this.setStatus('● GLOBAL CLOUD LIVE', 'text-emerald-400');
+        } else {
+            this.setStatus('● LOCAL CACHE (OFFLINE)', 'text-amber-400');
+        }
+    }
 };
 
 // ============================================================================
@@ -900,10 +1254,31 @@ function openBriefing(levelIdx) {
     document.getElementById('modal-debrief').classList.add('hidden');
     document.getElementById('hud-top').classList.add('hidden');
     document.getElementById('hud-bottom').classList.add('hidden');
+
+    LeaderboardManager.syncLeaderboard();
 }
 
 function startMission() {
     sfx.init();
+
+    const nameInput = document.getElementById('input-player-name');
+    const nameError = document.getElementById('name-error-msg');
+    const cleanName = nameInput.value.trim().toUpperCase().slice(0, 16);
+
+    if (!cleanName) {
+        nameError.classList.remove('hidden');
+        nameInput.classList.add('border-red-500');
+        nameInput.focus();
+        sfx.playFailAlarm();
+        return;
+    }
+
+    nameError.classList.add('hidden');
+    nameInput.classList.remove('border-red-500');
+    nameInput.value = cleanName;
+    state.playerName = cleanName;
+    LeaderboardManager.saveCallsign(cleanName);
+
     const lvl = LEVELS[state.levelIndex];
     const drink = DRINK_LOADOUTS[state.selectedDrink];
 
@@ -924,6 +1299,7 @@ function startMission() {
 
     // Update UI Badges
     document.getElementById('hud-mission-name').textContent = lvl.name;
+    document.getElementById('hud-operative-name').textContent = `OP: ${state.playerName}`;
     document.getElementById('hud-loadout-badge').textContent = drink.badge;
     document.getElementById('hud-pressure-lbl').textContent = `PRESSURE: ${drink.pressure.toFixed(1)}x`;
     const flushBtn = document.getElementById('btn-flush');
@@ -994,6 +1370,19 @@ function endMission(victory, reasonText) {
     document.getElementById('stat-fluid-bonus').textContent = `+${fluidBonus}`;
     document.getElementById('stat-splash-penalty').textContent = `-${splashPenalty}`;
     document.getElementById('stat-total-score').textContent = state.score.toLocaleString();
+
+    if (state.score > 0) {
+        LeaderboardManager.submitScore({
+            name: state.playerName || 'ANON OPERATIVE',
+            score: state.score,
+            mission: LEVELS[state.levelIndex].name,
+            drink: state.selectedDrink,
+            sanitation,
+            victory
+        });
+    } else {
+        LeaderboardManager.syncLeaderboard();
+    }
 
     document.getElementById('modal-debrief').classList.remove('hidden');
 }
@@ -1809,6 +2198,9 @@ canvas.addEventListener('touchend', () => {
 
 // Spacebar to fire / F to Flush
 window.addEventListener('keydown', e => {
+    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        return;
+    }
     if (e.code === 'Space' && state.screen === 'PLAYING') {
         e.preventDefault();
         sfx.init();
@@ -1819,8 +2211,27 @@ window.addEventListener('keydown', e => {
 });
 
 window.addEventListener('keyup', e => {
+    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        return;
+    }
     if (e.code === 'Space') {
         state.isFiring = false;
+    }
+});
+
+// Operative Callsign Input Handlers
+const nameInputEl = document.getElementById('input-player-name');
+nameInputEl.addEventListener('input', () => {
+    const errEl = document.getElementById('name-error-msg');
+    if (nameInputEl.value.trim()) {
+        errEl.classList.add('hidden');
+        nameInputEl.classList.remove('border-red-500');
+    }
+});
+nameInputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        startMission();
     }
 });
 
@@ -1837,6 +2248,11 @@ document.querySelectorAll('.drink-card').forEach(card => {
 
 // UI Action Buttons
 document.getElementById('btn-deploy').addEventListener('click', startMission);
+document.getElementById('btn-refresh-lb').addEventListener('click', () => {
+    sfx.init();
+    sfx.playPop(600);
+    LeaderboardManager.syncLeaderboard();
+});
 document.getElementById('btn-flush').addEventListener('click', triggerTacticalFlush);
 
 document.getElementById('btn-mute').addEventListener('click', () => {
@@ -1856,6 +2272,11 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
 
 // Initialize on Window Load
 window.onload = function () {
+    const savedName = LeaderboardManager.getSavedCallsign();
+    if (savedName) {
+        nameInputEl.value = savedName;
+        state.playerName = savedName;
+    }
     openBriefing(0);
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
