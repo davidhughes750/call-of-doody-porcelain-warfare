@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Call of Doody: Porcelain Warfare</title>
     <!-- Tactical Military Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,6 +49,7 @@
             position: relative;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -186,60 +187,61 @@
     <div id="splash-warning-overlay"></div>
 
     <!-- TOP TACTICAL HUD -->
-    <div id="hud-top" class="hidden absolute top-2 left-2 right-2 z-10 flex flex-wrap justify-between items-start gap-2 pointer-events-none">
+    <div id="hud-top" class="hidden absolute z-10 flex justify-between items-start gap-1.5 sm:gap-2 pointer-events-none" style="top: max(0.5rem, env(safe-area-inset-top)); left: max(0.5rem, env(safe-area-inset-left)); right: max(0.5rem, env(safe-area-inset-right));">
         <!-- Mission Info & Sanitation Progress -->
-        <div class="hud-panel px-3 py-2 flex-1 min-w-[210px] max-w-sm">
-            <div class="flex justify-between items-center text-xs text-emerald-400 mb-1">
-                <span id="hud-mission-name" class="font-bold tracking-wider uppercase">OP: TACO TUESDAY</span>
-                <span id="hud-timer" class="text-amber-300 font-bold text-sm">01:00</span>
+        <div class="hud-panel px-2 sm:px-3 py-1.5 sm:py-2 flex-1 min-w-0 max-w-sm">
+            <div class="flex justify-between items-center text-[10px] sm:text-xs text-emerald-400 mb-0.5 sm:mb-1 gap-1">
+                <span id="hud-mission-name" class="font-bold tracking-wider uppercase truncate">OP: TACO TUESDAY</span>
+                <span id="hud-timer" class="text-amber-300 font-bold text-xs sm:text-sm shrink-0">01:00</span>
             </div>
-            <div class="flex justify-between text-xs mb-1">
-                <span class="text-slate-300">BOWL SANITATION</span>
+            <div class="flex justify-between text-[10px] sm:text-xs mb-0.5 sm:mb-1">
+                <span class="text-slate-300"><span class="sm:hidden">CLEAN</span><span class="hidden sm:inline">BOWL SANITATION</span></span>
                 <span id="hud-sanitation-text" class="text-emerald-400 font-bold">0%</span>
             </div>
-            <div class="w-full h-3 bg-slate-900 rounded overflow-hidden border border-slate-700">
+            <div class="w-full h-2 sm:h-3 bg-slate-900 rounded overflow-hidden border border-slate-700">
                 <div id="hud-sanitation-bar" class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-150" style="width: 0%"></div>
             </div>
-            <div class="flex justify-between items-center mt-1.5 text-[11px] text-slate-400 gap-2">
-                <span id="hud-targets-left">HOSTILES: 0</span>
-                <span id="hud-operative-name" class="text-emerald-300 font-bold truncate max-w-[110px]">OP: ---</span>
-                <span id="hud-loadout-badge" class="text-amber-300 uppercase">H2O STD</span>
+            <div class="flex justify-between items-center mt-1 text-[10px] sm:text-[11px] text-slate-400 gap-1.5">
+                <span id="hud-targets-left" class="shrink-0">HOSTILES: 0</span>
+                <span id="hud-operative-name" class="hidden sm:inline text-emerald-300 font-bold truncate max-w-[110px]">OP: ---</span>
+                <span id="hud-loadout-badge" class="text-amber-300 uppercase truncate">H2O STD</span>
             </div>
         </div>
 
         <!-- Center Score & Combo -->
-        <div class="hud-panel px-4 py-2 text-center min-w-[140px]">
-            <div class="text-[10px] text-slate-400 tracking-widest">TACTICAL SCORE</div>
-            <div id="hud-score" class="stencil-font text-xl sm:text-2xl text-amber-400 leading-tight">00000</div>
-            <div id="hud-combo" class="text-xs font-bold text-emerald-400">COMBO 1.0x</div>
+        <div class="hud-panel px-2.5 sm:px-4 py-1.5 sm:py-2 text-center shrink-0 min-w-[78px] sm:min-w-[140px]">
+            <div class="text-[9px] sm:text-[10px] text-slate-400 tracking-widest">SCORE</div>
+            <div id="hud-score" class="stencil-font text-base sm:text-2xl text-amber-400 leading-tight">00000</div>
+            <div id="hud-combo" class="text-[10px] sm:text-xs font-bold text-emerald-400">1.0x</div>
         </div>
 
         <!-- Audio Mute & Tactical Flush Button -->
-        <div class="hud-panel px-3 py-2 flex items-center gap-2 pointer-events-auto">
-            <button id="btn-flush" class="tac-btn px-3 py-2 rounded text-xs sm:text-sm flex flex-col items-center leading-tight" title="Clears loose skids & pushes floaters (-5s)">
-                <span>🚽 TACTICAL FLUSH</span>
-                <span id="flush-status" class="text-[10px] text-amber-300">READY (1/1)</span>
+        <div class="hud-panel px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1.5 sm:gap-2 pointer-events-auto shrink-0">
+            <button id="btn-flush" class="tac-btn px-2 sm:px-3 py-1.5 sm:py-2 rounded text-[11px] sm:text-sm flex flex-col items-center leading-tight" title="Clears loose skids & pushes floaters (-5s)">
+                <span class="sm:hidden">🚽 FLUSH</span>
+                <span class="hidden sm:inline">🚽 TACTICAL FLUSH</span>
+                <span id="flush-status" class="text-[9px] sm:text-[10px] text-amber-300">READY (1/1)</span>
             </button>
-            <button id="btn-mute" class="tac-btn px-2.5 py-2 rounded text-sm" title="Toggle Audio">
+            <button id="btn-mute" class="tac-btn px-2 sm:px-2.5 py-1.5 sm:py-2 rounded text-xs sm:text-sm" title="Toggle Audio">
                 🔊
             </button>
         </div>
     </div>
 
     <!-- BOTTOM TACTICAL GAUGES -->
-    <div id="hud-bottom" class="hidden absolute bottom-3 left-3 right-3 z-10 flex flex-col sm:flex-row justify-between items-stretch sm:items-end gap-2 pointer-events-none">
+    <div id="hud-bottom" class="hidden absolute z-10 grid grid-cols-2 sm:flex sm:flex-row justify-between items-stretch sm:items-end gap-1.5 sm:gap-2 pointer-events-none" style="bottom: max(0.5rem, env(safe-area-inset-bottom)); left: max(0.5rem, env(safe-area-inset-left)); right: max(0.5rem, env(safe-area-inset-right));">
         <!-- Left: Bladder Tank (Ammo) -->
-        <div class="hud-panel px-3 py-2 w-full sm:w-64">
-            <div class="flex justify-between items-center text-xs mb-1">
-                <span class="text-amber-300 font-bold tracking-wider">⚡ BLADDER TANK</span>
+        <div class="hud-panel px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-64">
+            <div class="flex justify-between items-center text-[10px] sm:text-xs mb-1">
+                <span class="text-amber-300 font-bold tracking-wider"><span class="sm:hidden">⚡ TANK</span><span class="hidden sm:inline">⚡ BLADDER TANK</span></span>
                 <span id="hud-bladder-text" class="text-amber-300 font-bold">100%</span>
             </div>
-            <div class="w-full h-3.5 bg-slate-900 rounded overflow-hidden border border-amber-500/40">
+            <div class="w-full h-2.5 sm:h-3.5 bg-slate-900 rounded overflow-hidden border border-amber-500/40">
                 <div id="hud-bladder-bar" class="h-full bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-300 transition-all duration-75" style="width: 100%"></div>
             </div>
-            <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
-                <span>HOLD LMB / SPACE: FIRE</span>
-                <span id="hud-pressure-lbl">PRESSURE: 1.0x</span>
+            <div class="text-[9px] sm:text-[10px] text-slate-400 mt-1 flex justify-between gap-1">
+                <span id="hud-fire-hint" class="truncate">HOLD LMB / SPACE: FIRE</span>
+                <span id="hud-pressure-lbl" class="shrink-0">PWR: 1.0x</span>
             </div>
         </div>
 
@@ -249,55 +251,56 @@
         </div>
 
         <!-- Right: Splashback Meter (Danger/Health) -->
-        <div class="hud-panel px-3 py-2 w-full sm:w-64">
-            <div class="flex justify-between items-center text-xs mb-1">
-                <span class="text-red-400 font-bold tracking-wider">☣ SPLASHBACK METER</span>
+        <div class="hud-panel px-2.5 sm:px-3 py-1.5 sm:py-2 w-full sm:w-64">
+            <div class="flex justify-between items-center text-[10px] sm:text-xs mb-1">
+                <span class="text-red-400 font-bold tracking-wider"><span class="sm:hidden">☣ SPLASH</span><span class="hidden sm:inline">☣ SPLASHBACK METER</span></span>
                 <span id="hud-splash-text" class="text-red-400 font-bold">0%</span>
             </div>
-            <div class="w-full h-3.5 bg-slate-900 rounded overflow-hidden border border-red-500/40">
+            <div class="w-full h-2.5 sm:h-3.5 bg-slate-900 rounded overflow-hidden border border-red-500/40">
                 <div id="hud-splash-bar" class="h-full bg-gradient-to-r from-emerald-500 via-amber-500 to-red-600 transition-all duration-75" style="width: 0%"></div>
             </div>
-            <div class="text-[10px] text-slate-400 mt-1 text-right">
-                100% = PANTS SOAKED (MISSION FAIL)
+            <div class="text-[9px] sm:text-[10px] text-slate-400 mt-1 text-right truncate">
+                <span class="sm:hidden">100% = SOAKED</span>
+                <span class="hidden sm:inline">100% = PANTS SOAKED (MISSION FAIL)</span>
             </div>
         </div>
     </div>
 
     <!-- MODAL: MISSION BRIEFING & TACTICAL HYDRATION LOADOUT -->
-    <div id="modal-briefing" class="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 overflow-y-auto">
-        <div class="hud-panel max-w-2xl w-full p-5 sm:p-6 border-2 border-emerald-500/60 my-auto">
-            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-3 mb-4">
+    <div id="modal-briefing" class="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2.5 sm:p-3 overflow-y-auto" style="padding-top: max(0.65rem, env(safe-area-inset-top)); padding-bottom: max(0.65rem, env(safe-area-inset-bottom));">
+        <div class="hud-panel max-w-2xl w-full p-3.5 sm:p-6 border-2 border-emerald-500/60 my-auto">
+            <div class="flex items-center justify-between border-b border-emerald-500/30 pb-2.5 sm:pb-3 mb-3 sm:mb-4">
                 <div>
-                    <div class="text-xs text-amber-400 tracking-widest uppercase">TOP SECRET // SANITATION COMMAND</div>
-                    <h1 class="stencil-font text-2xl sm:text-4xl text-emerald-400 drop-shadow">CALL OF DOODY</h1>
-                    <div class="text-xs sm:text-sm text-slate-300 tracking-widest">PORCELAIN WARFARE</div>
+                    <div class="text-[10px] sm:text-xs text-amber-400 tracking-widest uppercase">TOP SECRET // SANITATION COMMAND</div>
+                    <h1 class="stencil-font text-2xl sm:text-4xl text-emerald-400 drop-shadow leading-none mt-0.5">CALL OF DOODY</h1>
+                    <div class="text-[11px] sm:text-sm text-slate-300 tracking-widest">PORCELAIN WARFARE</div>
                 </div>
-                <div class="text-right">
-                    <span id="briefing-level-badge" class="inline-block bg-emerald-950 border border-emerald-400 text-emerald-300 px-2.5 py-1 rounded text-xs font-bold">
+                <div class="text-right shrink-0">
+                    <span id="briefing-level-badge" class="inline-block bg-emerald-950 border border-emerald-400 text-emerald-300 px-2 sm:px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold">
                         MISSION 1 / 3
                     </span>
                 </div>
             </div>
 
             <!-- Mission Intel Box -->
-            <div class="bg-slate-950/80 border border-slate-700 rounded p-3 mb-4">
-                <div class="flex justify-between items-center mb-1">
-                    <h2 id="briefing-title" class="stencil-font text-lg text-amber-400">OP: TACO TUESDAY</h2>
-                    <span id="briefing-env" class="text-xs text-emerald-400 uppercase">[STANDARD BATHROOM]</span>
+            <div class="bg-slate-950/80 border border-slate-700 rounded p-2.5 sm:p-3 mb-3 sm:mb-4">
+                <div class="flex justify-between items-center mb-1 gap-2">
+                    <h2 id="briefing-title" class="stencil-font text-base sm:text-lg text-amber-400">OP: TACO TUESDAY</h2>
+                    <span id="briefing-env" class="text-[10px] sm:text-xs text-emerald-400 uppercase">[STANDARD BATHROOM]</span>
                 </div>
                 <p id="briefing-desc" class="text-xs sm:text-sm text-slate-300 leading-relaxed mb-2">
                     Intel reports fresh Surface Skids and a rogue Floater inside the primary porcelain basin. Neutralize all organic hostiles before your tank runs dry.
                 </p>
-                <div class="grid grid-cols-3 gap-2 text-[11px] pt-2 border-t border-slate-800 text-slate-300">
-                    <div>🟤 <strong class="text-amber-300">SKIDS:</strong> Fast dissolve</div>
-                    <div>🪨 <strong class="text-orange-400">CRUST:</strong> Heavy armor</div>
-                    <div>💩 <strong class="text-yellow-500">FLOATER:</strong> Push to drain</div>
+                <div class="grid grid-cols-3 gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] pt-2 border-t border-slate-800 text-slate-300">
+                    <div>🟤 <strong class="text-amber-300">SKIDS:</strong> Fast</div>
+                    <div>🪨 <strong class="text-orange-400">CRUST:</strong> Armor</div>
+                    <div>💩 <strong class="text-yellow-500">FLOATER:</strong> Drain</div>
                 </div>
             </div>
 
             <!-- Operative Callsign Input -->
-            <div class="mb-4">
-                <label for="input-player-name" class="block text-xs text-emerald-400 font-bold tracking-wider mb-1.5 uppercase">
+            <div class="mb-3 sm:mb-4">
+                <label for="input-player-name" class="block text-xs text-emerald-400 font-bold tracking-wider mb-1 uppercase">
                     1. ENTER OPERATIVE CALLSIGN:
                 </label>
                 <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
@@ -307,7 +310,7 @@
                         maxlength="16"
                         autocomplete="nickname"
                         placeholder="ENTER YOUR NAME (E.G. SGT. FLUSH)..."
-                        class="flex-1 bg-slate-950/90 border border-emerald-500/50 focus:border-emerald-400 focus:outline-none rounded px-3 py-2 text-sm text-emerald-300 placeholder-slate-500 uppercase tracking-wider font-bold"
+                        class="flex-1 bg-slate-950/90 border border-emerald-500/50 focus:border-emerald-400 focus:outline-none rounded px-3 py-2 text-base sm:text-sm text-emerald-300 placeholder-slate-500 uppercase tracking-wider font-bold"
                     />
                 </div>
                 <div id="name-error-msg" class="hidden text-xs text-red-400 font-bold mt-1 animate-pulse-fast">
@@ -316,58 +319,58 @@
             </div>
 
             <!-- Tactical Hydration Selector -->
-            <div class="mb-5">
-                <div class="text-xs text-emerald-400 font-bold tracking-wider mb-2 uppercase">
+            <div class="mb-3.5 sm:mb-5">
+                <div class="text-xs text-emerald-400 font-bold tracking-wider mb-1.5 sm:mb-2 uppercase">
                     2. SELECT TACTICAL HYDRATION LOADOUT:
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="drink-selector">
-                    <div class="drink-card selected rounded p-2.5 flex flex-col justify-between" data-drink="water">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="drink-selector">
+                    <div class="drink-card selected rounded p-2 sm:p-2.5 flex flex-col justify-between" data-drink="water">
                         <div>
-                            <div class="text-lg mb-0.5">💧</div>
+                            <div class="text-base sm:text-lg mb-0.5">💧</div>
                             <div class="font-bold text-xs text-sky-300">TAP WATER</div>
-                            <div class="text-[10px] text-slate-400 mt-1">Standard issue. Steady aim, balanced pressure & capacity.</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 sm:mt-1">Steady aim, balanced pressure &amp; capacity.</div>
                         </div>
-                        <div class="text-[10px] text-emerald-400 mt-2 font-bold">ACC: ★★★★★</div>
+                        <div class="text-[10px] text-emerald-400 mt-1.5 sm:mt-2 font-bold">ACC: ★★★★★</div>
                     </div>
 
-                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="coffee">
+                    <div class="drink-card rounded p-2 sm:p-2.5 flex flex-col justify-between" data-drink="coffee">
                         <div>
-                            <div class="text-lg mb-0.5">☕</div>
+                            <div class="text-base sm:text-lg mb-0.5">☕</div>
                             <div class="font-bold text-xs text-amber-400">BLACK COFFEE</div>
-                            <div class="text-[10px] text-slate-400 mt-1">+50% Hydro-Pressure for heavy crust. High caffeine jitter!</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 sm:mt-1">+50% Hydro-Pressure. High caffeine jitter!</div>
                         </div>
-                        <div class="text-[10px] text-amber-300 mt-2 font-bold">PWR: ★★★★★</div>
+                        <div class="text-[10px] text-amber-300 mt-1.5 sm:mt-2 font-bold">PWR: ★★★★★</div>
                     </div>
 
-                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="energy">
+                    <div class="drink-card rounded p-2 sm:p-2.5 flex flex-col justify-between" data-drink="energy">
                         <div>
-                            <div class="text-lg mb-0.5">⚡</div>
+                            <div class="text-base sm:text-lg mb-0.5">⚡</div>
                             <div class="font-bold text-xs text-lime-400">NITRO ENERGY</div>
-                            <div class="text-[10px] text-slate-400 mt-1">Neon tracer stream + 2.0x armor shred. Fast drain rate.</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 sm:mt-1">Neon tracer + 2.0x armor shred. Fast drain.</div>
                         </div>
-                        <div class="text-[10px] text-lime-400 mt-2 font-bold">TRACER: NEON</div>
+                        <div class="text-[10px] text-lime-400 mt-1.5 sm:mt-2 font-bold">TRACER: NEON</div>
                     </div>
 
-                    <div class="drink-card rounded p-2.5 flex flex-col justify-between" data-drink="beer">
+                    <div class="drink-card rounded p-2 sm:p-2.5 flex flex-col justify-between" data-drink="beer">
                         <div>
-                            <div class="text-lg mb-0.5">🍺</div>
+                            <div class="text-base sm:text-lg mb-0.5">🍺</div>
                             <div class="font-bold text-xs text-yellow-300">LIGHT BEER</div>
-                            <div class="text-[10px] text-slate-400 mt-1">+65% Bladder Tank capacity. Heavy drunken aim sway!</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5 sm:mt-1">+65% Tank capacity. Drunken aim sway!</div>
                         </div>
-                        <div class="text-[10px] text-yellow-300 mt-2 font-bold">TANK: ★★★★★</div>
+                        <div class="text-[10px] text-yellow-300 mt-1.5 sm:mt-2 font-bold">TANK: ★★★★★</div>
                     </div>
                 </div>
             </div>
 
-            <button id="btn-deploy" class="tac-btn w-full py-3.5 rounded stencil-font text-lg sm:text-xl tracking-wider">
+            <button id="btn-deploy" class="tac-btn w-full py-3 sm:py-3.5 rounded stencil-font text-base sm:text-xl tracking-wider">
                 🎯 DEPLOY TO PORCELAIN
             </button>
 
             <!-- Global Tactical Leaderboard (Home Screen) -->
-            <div class="mt-4 bg-slate-950/85 border border-emerald-500/30 rounded p-3">
-                <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
-                    <div class="text-xs font-bold text-amber-400 tracking-wider uppercase">
-                        🏆 GLOBAL TACTICAL LEADERBOARD
+            <div class="mt-3 sm:mt-4 bg-slate-950/85 border border-emerald-500/30 rounded p-2.5 sm:p-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-1.5 sm:mb-2">
+                    <div class="text-[11px] sm:text-xs font-bold text-amber-400 tracking-wider uppercase">
+                        🏆 GLOBAL LEADERBOARD
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="lb-status-briefing" class="text-[10px] text-emerald-400 uppercase">● SYNCING...</span>
@@ -376,7 +379,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="max-h-44 overflow-y-auto">
+                <div class="max-h-36 sm:max-h-44 overflow-y-auto">
                     <table class="w-full text-left text-[11px] border-collapse">
                         <thead>
                             <tr class="text-slate-400 border-b border-slate-800 uppercase">
@@ -397,8 +400,8 @@
     </div>
 
     <!-- MODAL: MISSION DEBRIEF (VICTORY / COURT MARTIAL) -->
-    <div id="modal-debrief" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-sm p-3 overflow-y-auto">
-        <div class="hud-panel max-w-lg w-full p-5 sm:p-6 border-2 text-center my-auto" id="debrief-panel">
+    <div id="modal-debrief" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/85 backdrop-blur-sm p-2.5 sm:p-3 overflow-y-auto" style="padding-top: max(0.65rem, env(safe-area-inset-top)); padding-bottom: max(0.65rem, env(safe-area-inset-bottom));">
+        <div class="hud-panel max-w-lg w-full p-4 sm:p-6 border-2 text-center my-auto" id="debrief-panel">
             <div id="debrief-stamp" class="inline-block border-2 px-3 py-0.5 rounded text-xs font-bold tracking-widest mb-2 uppercase">
                 MISSION REPORT
             </div>
@@ -786,18 +789,34 @@ const bowl = {
 };
 
 function resizeCanvas() {
+    const prevCx = bowl.cx;
+    const prevCy = bowl.cy;
+    const prevRx = bowl.innerRx;
+    const prevRy = bowl.innerRy;
+
     width = window.innerWidth;
     height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Center bowl slightly above vertical center to leave room for bottom HUD & stream origin
+    const isMobilePortrait = width < 640 && height >= width;
+    const topReserved = width < 640 ? 92 : 84;
+    const bottomReserved = width < 640 ? 78 : 88;
+    const availH = Math.max(180, height - topReserved - bottomReserved);
+
     bowl.cx = width * 0.5;
-    bowl.cy = height * 0.47;
+    bowl.cy = topReserved + availH * 0.54;
 
-    const minDim = Math.min(width * 0.88, height * 0.74);
-    bowl.outerRx = minDim * 0.44;
-    bowl.outerRy = minDim * 0.52;
+    if (isMobilePortrait) {
+        bowl.outerRx = Math.min(width * 0.46, availH * 0.355);
+        bowl.outerRy = bowl.outerRx * 1.18;
+    } else {
+        const minDim = Math.min(width * 0.88, availH * 0.88);
+        bowl.outerRx = minDim * 0.44;
+        bowl.outerRy = minDim * 0.52;
+    }
 
     bowl.innerRx = bowl.outerRx * 0.77;
     bowl.innerRy = bowl.outerRy * 0.78;
@@ -808,6 +827,30 @@ function resizeCanvas() {
     bowl.drainRx = bowl.waterRx * 0.36;
     bowl.drainRy = bowl.waterRy * 0.34;
     bowl.drainYOffset = bowl.waterRy * 0.25;
+
+    // Proportionally reposition active stains & floaters on viewport resize/rotation
+    if (typeof state !== 'undefined' && prevRx > 0 && prevRy > 0 && bowl.innerRx > 0) {
+        const scale = bowl.innerRx / prevRx;
+        state.stains.forEach(s => {
+            const nx = (s.x - prevCx) / prevRx;
+            const ny = (s.y - prevCy) / prevRy;
+            s.x = bowl.cx + nx * bowl.innerRx;
+            s.y = bowl.cy + ny * bowl.innerRy;
+            s.radius *= scale;
+            s.blobs.forEach(b => {
+                b.ox *= scale;
+                b.oy *= scale;
+                b.r *= scale;
+            });
+        });
+        state.floaters.forEach(f => {
+            const nx = (f.x - prevCx) / prevRx;
+            const ny = (f.y - prevCy) / prevRy;
+            f.x = bowl.cx + nx * bowl.innerRx;
+            f.y = bowl.cy + ny * bowl.innerRy;
+            f.radius *= scale;
+        });
+    }
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -829,6 +872,9 @@ const state = {
     flushUsed: false,
     flushAnimTimer: 0,
     isFiring: false,
+    isTouchAiming: false,
+    touchRawX: width * 0.5,
+    touchRawY: height * 0.5,
     mouseX: width * 0.5,
     mouseY: height * 0.45,
     aimX: width * 0.5,
@@ -1301,7 +1347,9 @@ function startMission() {
     document.getElementById('hud-mission-name').textContent = lvl.name;
     document.getElementById('hud-operative-name').textContent = `OP: ${state.playerName}`;
     document.getElementById('hud-loadout-badge').textContent = drink.badge;
-    document.getElementById('hud-pressure-lbl').textContent = `PRESSURE: ${drink.pressure.toFixed(1)}x`;
+    document.getElementById('hud-pressure-lbl').textContent = `PWR: ${drink.pressure.toFixed(1)}x`;
+    const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    document.getElementById('hud-fire-hint').textContent = isTouchCapable ? 'DRAG: AIM & FIRE' : 'HOLD LMB / SPACE: FIRE';
     const flushBtn = document.getElementById('btn-flush');
     flushBtn.disabled = false;
     document.getElementById('flush-status').textContent = 'READY (1/1)';
@@ -2070,6 +2118,25 @@ function drawLiquidStreamAndReticle() {
         const ry = state.aimY;
         const radius = state.isFiring ? 15 : 20;
 
+        // Subtle thumb-to-reticle guide line on touch screens
+        if (state.isTouchAiming && state.isFiring) {
+            ctx.save();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = 'rgba(74, 222, 128, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(state.touchRawX, state.touchRawY);
+            ctx.lineTo(rx, ry);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.arc(state.touchRawX, state.touchRawY, 12, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+            ctx.stroke();
+            ctx.restore();
+        }
+
         ctx.save();
         ctx.translate(rx, ry);
 
@@ -2151,20 +2218,33 @@ function gameLoop(now) {
 // ============================================================================
 // 11. INPUT HANDLERS (Mouse, Touch, Keyboard, UI Buttons)
 // ============================================================================
-function updatePointer(clientX, clientY) {
+const TOUCH_AIM_OFFSET_Y = 65;
+
+function updatePointer(clientX, clientY, isTouch = false) {
     const rect = canvas.getBoundingClientRect();
-    state.mouseX = clientX - rect.left;
-    state.mouseY = clientY - rect.top;
+    const rawX = clientX - rect.left;
+    const rawY = clientY - rect.top;
+    state.isTouchAiming = isTouch;
+    state.touchRawX = rawX;
+    state.touchRawY = rawY;
+    state.mouseX = Math.min(width, Math.max(0, rawX));
+    state.mouseY = isTouch
+        ? Math.min(height, Math.max(12, rawY - TOUCH_AIM_OFFSET_Y))
+        : Math.min(height, Math.max(0, rawY));
+    const fireHint = document.getElementById('hud-fire-hint');
+    if (fireHint) {
+        fireHint.textContent = isTouch ? 'DRAG: AIM & FIRE' : 'HOLD LMB / SPACE: FIRE';
+    }
 }
 
 canvas.addEventListener('mousemove', e => {
-    updatePointer(e.clientX, e.clientY);
+    updatePointer(e.clientX, e.clientY, false);
 });
 
 canvas.addEventListener('mousedown', e => {
     if (e.button === 0 && state.screen === 'PLAYING') {
         sfx.init();
-        updatePointer(e.clientX, e.clientY);
+        updatePointer(e.clientX, e.clientY, false);
         state.isFiring = true;
     }
 });
@@ -2173,13 +2253,13 @@ window.addEventListener('mouseup', () => {
     state.isFiring = false;
 });
 
-// Touch support for mobile devices
+// Touch support for mobile devices (with vertical thumb-offset aiming)
 canvas.addEventListener('touchstart', e => {
     if (state.screen === 'PLAYING') {
         e.preventDefault();
         sfx.init();
         const t = e.touches[0];
-        updatePointer(t.clientX, t.clientY);
+        updatePointer(t.clientX, t.clientY, true);
         state.isFiring = true;
     }
 }, { passive: false });
@@ -2188,7 +2268,7 @@ canvas.addEventListener('touchmove', e => {
     if (state.screen === 'PLAYING') {
         e.preventDefault();
         const t = e.touches[0];
-        updatePointer(t.clientX, t.clientY);
+        updatePointer(t.clientX, t.clientY, true);
     }
 }, { passive: false });
 
