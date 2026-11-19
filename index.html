@@ -244,9 +244,9 @@
             id="btn-fire-mobile"
             type="button"
             class="col-span-2 sm:hidden pointer-events-auto tac-btn w-full py-3 rounded-lg stencil-font text-sm tracking-wider flex items-center justify-center gap-2 select-none"
-            style="touch-action: none;"
+            style="touch-action: none; -webkit-touch-callout: none;"
         >
-            <span>💦 HOLD TO FIRE STREAM</span>
+            <span id="btn-fire-mobile-label" class="pointer-events-none">💦 HOLD TO FIRE STREAM</span>
         </button>
 
         <!-- Left: Bladder Tank (Ammo) -->
@@ -2464,17 +2464,23 @@ function gameLoop(now) {
 // ============================================================================
 const TOUCH_AIM_OFFSET_Y = 65;
 
+let activeFireTouchId = null;
+
 function updateFireButtonVisual(firing) {
     const btn = document.getElementById('btn-fire-mobile');
+    const label = document.getElementById('btn-fire-mobile-label');
+    if (!firing) {
+        activeFireTouchId = null;
+    }
     if (!btn) return;
     if (firing) {
-        btn.innerHTML = '<span>🔥 FIRING STREAM...</span>';
+        if (label) label.textContent = '🔥 FIRING STREAM...';
         btn.style.borderColor = '#fbbf24';
         btn.style.color = '#fef08a';
         btn.style.background = 'linear-gradient(180deg, #78350f 0%, #451a03 100%)';
         btn.style.boxShadow = '0 0 18px rgba(251, 191, 36, 0.65)';
     } else {
-        btn.innerHTML = '<span>💦 HOLD TO FIRE STREAM</span>';
+        if (label) label.textContent = '💦 HOLD TO FIRE STREAM';
         btn.style.borderColor = '';
         btn.style.color = '';
         btn.style.background = '';
@@ -2557,14 +2563,34 @@ const startMobileFire = e => {
     e.preventDefault();
     sfx.init();
     if (state.screen === 'PLAYING') {
+        const touch = (e.changedTouches && e.changedTouches[0]) || (e.targetTouches && e.targetTouches[0]);
+        if (touch && typeof touch.identifier !== 'undefined') {
+            activeFireTouchId = touch.identifier;
+        }
         state.isFiring = true;
         updateFireButtonVisual(true);
     }
 };
 const stopMobileFire = e => {
-    e.preventDefault();
+    if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+    }
+    if (e && e.targetTouches && e.targetTouches.length > 0) {
+        return;
+    }
     state.isFiring = false;
+    activeFireTouchId = null;
     updateFireButtonVisual(false);
+};
+const handleGlobalTouchEnd = e => {
+    if (activeFireTouchId === null) return;
+    const activeTouches = Array.from(e.touches || []);
+    const stillHoldingFire = activeTouches.some(t => t.identifier === activeFireTouchId);
+    if (!stillHoldingFire || activeTouches.length === 0) {
+        state.isFiring = false;
+        activeFireTouchId = null;
+        updateFireButtonVisual(false);
+    }
 };
 mobileFireBtnEl.addEventListener('touchstart', startMobileFire, { passive: false });
 mobileFireBtnEl.addEventListener('mousedown', startMobileFire);
@@ -2572,6 +2598,25 @@ mobileFireBtnEl.addEventListener('touchend', stopMobileFire, { passive: false })
 mobileFireBtnEl.addEventListener('touchcancel', stopMobileFire, { passive: false });
 mobileFireBtnEl.addEventListener('mouseup', stopMobileFire);
 mobileFireBtnEl.addEventListener('mouseleave', stopMobileFire);
+mobileFireBtnEl.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('touchend', handleGlobalTouchEnd);
+window.addEventListener('touchcancel', handleGlobalTouchEnd);
+window.addEventListener('blur', () => {
+    state.isFiring = false;
+    state.isTouchCanvasActive = false;
+    activeFireTouchId = null;
+    updateFireButtonVisual(false);
+});
+if (typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            state.isFiring = false;
+            state.isTouchCanvasActive = false;
+            activeFireTouchId = null;
+            updateFireButtonVisual(false);
+        }
+    });
+}
 
 // Spacebar to fire / F to Flush
 window.addEventListener('keydown', e => {
