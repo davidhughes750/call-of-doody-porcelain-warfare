@@ -12,7 +12,7 @@ A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural 
 - **Persistent Global Leaderboard & Operative Ranks**: Tracks top personal-best scores per unique operative (1 row per player with rank badge `PVT`–`GEN` and total plays badge) alongside live global mission/operative counters on both the home briefing screen and mission debrief report.
 - **In-Bowl Power-Ups & Kegel Overcharge**: Pop **Urinal Cake Bombs** for a `-25%` splashback foam shockwave, pop **Hydration Bubbles** for `+20%` tank refills, and hold off fire for `2s` to unleash a `2.2x` **Kegel Overcharge** burst with FPS hit-markers and debrief medals.
 - **Mobile & Touch Optimized**: Features thumb-offset touch aiming with a dedicated **HOLD TO FIRE STREAM** button, a Retina (`devicePixelRatio`) canvas, proportional portrait bowl scaling with safe-area support, and a compact single-row mobile HUD.
-- **Drill Sergeant Radio Comms**: Includes 8 radio-filtered Gunnery Sgt. Hartman-inspired MP3 voice lines (`audio/*.mp3`) triggered on mission deploy, crust clearing, floater sinking, splashback warnings, tactical flush, victory, and court martial (with an on-screen radio subtitle banner and home-screen soundboard trigger).
+- **Drill Sergeant Radio Comms & Background Music**: Includes looping game soundtrack (`audio/game_music.mp3`) with automatic voice ducking and music toggle, plus 8 Gunnery Sgt. Hartman-inspired MP3 voice lines (`audio/*.mp3`) triggered on mission deploy, crust clearing, floater sinking, splashback warnings, tactical flush, victory, and court martial.
 
 ## Missions
 

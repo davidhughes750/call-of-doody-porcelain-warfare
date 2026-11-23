@@ -296,11 +296,16 @@
                 </div>
                 <div class="text-right shrink-0 flex flex-col items-end gap-1.5">
                     <span id="briefing-level-badge" class="inline-block bg-emerald-950 border border-emerald-400 text-emerald-300 px-2 sm:px-2.5 py-1 rounded text-[11px] sm:text-xs font-bold">
-                        MISSION 1 / 3
+                        MISSION 1 / 4
                     </span>
-                    <button id="btn-sgt-bark" type="button" class="tac-btn px-2 py-1 rounded text-[10px] sm:text-xs" title="Hear Gunnery Sgt. Hartman">
-                        📻 SGT. HARTMAN
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button id="btn-music-toggle" type="button" class="tac-btn px-2 py-1 rounded text-[10px] sm:text-xs" title="Toggle Background Music">
+                            🎵 MUSIC: ON
+                        </button>
+                        <button id="btn-sgt-bark" type="button" class="tac-btn px-2 py-1 rounded text-[10px] sm:text-xs" title="Hear Gunnery Sgt. Hartman">
+                            📻 SGT. HARTMAN
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -758,6 +763,104 @@ class SoundFX {
 const sfx = new SoundFX();
 
 // ============================================================================
+// 1A. BACKGROUND GAME MUSIC MANAGER (Autoplay + Gesture Unlock + Voice Ducking)
+// ============================================================================
+const GameMusic = {
+    SRC: 'audio/game_music.mp3',
+    BASE_VOLUME: 0.35,
+    DUCK_VOLUME: 0.14,
+    audio: null,
+    enabled: true,
+    started: false,
+    duckTimer: null,
+
+    init() {
+        if (this.audio || typeof Audio === 'undefined') return;
+        const audio = new Audio(this.SRC);
+        audio.loop = true;
+        audio.preload = 'auto';
+        audio.volume = this.BASE_VOLUME;
+        this.audio = audio;
+    },
+
+    updateButtonLabel() {
+        const btn = document.getElementById('btn-music-toggle');
+        if (!btn) return;
+        const active = this.enabled && !sfx.muted;
+        btn.textContent = active ? '🎵 MUSIC: ON' : '🔇 MUSIC: OFF';
+    },
+
+    tryStart() {
+        this.init();
+        this.updateButtonLabel();
+        if (!this.audio || !this.enabled || sfx.muted) return;
+        if (!this.audio.paused) {
+            this.started = true;
+            return;
+        }
+        try {
+            const playPromise = this.audio.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    this.started = true;
+                }).catch(() => {
+                    // Autoplay blocked until first user gesture; unlock listener will retry
+                });
+            } else {
+                this.started = true;
+            }
+        } catch {
+            // Ignore playback errors in restricted environments
+        }
+    },
+
+    pause() {
+        if (!this.audio) return;
+        try {
+            this.audio.pause();
+        } catch {
+            // Ignore
+        }
+    },
+
+    toggle() {
+        this.enabled = !this.enabled;
+        if (this.enabled && !sfx.muted) {
+            this.tryStart();
+        } else {
+            this.pause();
+        }
+        this.updateButtonLabel();
+    },
+
+    syncMute() {
+        if (sfx.muted || !this.enabled) {
+            this.pause();
+        } else {
+            this.tryStart();
+        }
+        this.updateButtonLabel();
+    },
+
+    duck(durationMs = 5000) {
+        if (!this.audio) return;
+        this.audio.volume = this.DUCK_VOLUME;
+        if (this.duckTimer) clearTimeout(this.duckTimer);
+        this.duckTimer = setTimeout(() => this.unduck(), durationMs);
+    },
+
+    unduck() {
+        if (this.duckTimer) {
+            clearTimeout(this.duckTimer);
+            this.duckTimer = null;
+        }
+        if (this.audio) {
+            this.audio.volume = this.BASE_VOLUME;
+        }
+    }
+};
+
+// ============================================================================
 // 1B. DRILL SERGEANT RADIO COMMS VOICE SYSTEM
 // ============================================================================
 const DrillSergeant = {
@@ -858,6 +961,7 @@ const DrillSergeant = {
             clearTimeout(this.hideTimer);
             this.hideTimer = null;
         }
+        GameMusic.unduck();
     },
 
     speak(clipKey, { cooldownMs = 0 } = {}) {
@@ -874,6 +978,7 @@ const DrillSergeant = {
         if (sfx.muted) return;
         sfx.init();
         sfx.playRadioSquelch();
+        GameMusic.duck(9500);
 
         if (this.currentAudio) {
             try {
@@ -898,10 +1003,17 @@ const DrillSergeant = {
         } catch {
             // Ignore seek before metadata ready
         }
-        audio.onerror = () => this.fallbackSpeech(clip.text);
+        audio.onended = () => GameMusic.unduck();
+        audio.onerror = () => {
+            GameMusic.unduck();
+            this.fallbackSpeech(clip.text);
+        };
         const playPromise = audio.play();
         if (playPromise && typeof playPromise.catch === 'function') {
-            playPromise.catch(() => this.fallbackSpeech(clip.text));
+            playPromise.catch(() => {
+                GameMusic.unduck();
+                this.fallbackSpeech(clip.text);
+            });
         }
     },
 
@@ -3270,7 +3382,14 @@ document.querySelectorAll('.drink-card').forEach(card => {
 });
 
 // UI Action Buttons
-document.getElementById('btn-deploy').addEventListener('click', startMission);
+document.getElementById('btn-deploy').addEventListener('click', () => {
+    GameMusic.tryStart();
+    startMission();
+});
+document.getElementById('btn-music-toggle').addEventListener('click', () => {
+    sfx.init();
+    GameMusic.toggle();
+});
 document.getElementById('btn-sgt-bark').addEventListener('click', () => {
     DrillSergeant.playNextBark();
 });
@@ -3285,10 +3404,31 @@ document.getElementById('btn-mute').addEventListener('click', () => {
     sfx.init();
     sfx.muted = !sfx.muted;
     document.getElementById('btn-mute').textContent = sfx.muted ? '🔇' : '🔊';
+    GameMusic.syncMute();
     if (sfx.muted) {
         DrillSergeant.stop();
     }
 });
+
+// Unlock background music on first user gesture if browser blocks initial autoplay
+const unlockGameMusic = () => {
+    if (!GameMusic.started && GameMusic.enabled && !sfx.muted) {
+        GameMusic.tryStart();
+    }
+};
+window.addEventListener('pointerdown', unlockGameMusic);
+window.addEventListener('touchstart', unlockGameMusic, { passive: true });
+window.addEventListener('keydown', unlockGameMusic);
+
+if (typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            GameMusic.pause();
+        } else if (GameMusic.started && GameMusic.enabled && !sfx.muted) {
+            GameMusic.tryStart();
+        }
+    });
+}
 
 document.getElementById('btn-retry').addEventListener('click', () => {
     openBriefing(state.levelIndex);
@@ -3308,6 +3448,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
 // Initialize on Window Load
 window.onload = function () {
     DrillSergeant.preload();
+    GameMusic.tryStart();
     const savedName = LeaderboardManager.getSavedCallsign();
     if (savedName) {
         nameInputEl.value = savedName;
