@@ -1088,6 +1088,14 @@ const LEVELS = [
         id: 1,
         name: 'OP: TACO TUESDAY',
         env: 'SUBURBAN BATHROOM',
+        photoSrc: 'images/level1.jpg',
+        photoBgColor: '#c7cacd',
+        photoGeom: {
+            cx: 0.50, cy: 0.635, outerRx: 0.26, outerRy: 0.295,
+            innerCy: 0.62, innerRx: 0.195, innerRy: 0.24,
+            waterCy: 0.58, waterRx: 0.13, waterRy: 0.15,
+            drainY: 0.545, drainRx: 0.048, drainRy: 0.055
+        },
         tileColorA: '#cbd5e1',
         tileColorB: '#94a3b8',
         porcelainTint: '#ffffff',
@@ -1104,6 +1112,14 @@ const LEVELS = [
         id: 2,
         name: 'OP: CURRY NIGHT',
         env: 'APARTMENT SUITE',
+        photoSrc: 'images/level2.jpg',
+        photoBgColor: '#9c8a72',
+        photoGeom: {
+            cx: 0.50, cy: 0.57, outerRx: 0.31, outerRy: 0.34,
+            innerCy: 0.555, innerRx: 0.235, innerRy: 0.275,
+            waterCy: 0.538, waterRx: 0.135, waterRy: 0.152,
+            drainY: 0.48, drainRx: 0.052, drainRy: 0.058
+        },
         tileColorA: '#d6d3d1',
         tileColorB: '#a8a29e',
         porcelainTint: '#fefce8',
@@ -1120,10 +1136,18 @@ const LEVELS = [
         id: 3,
         name: 'OP: FESTIVAL PORTA-POTTY',
         env: 'HAZMAT WARZONE',
+        photoSrc: 'images/level3.jpg',
+        photoBgColor: '#2d3135',
+        photoGeom: {
+            cx: 0.50, cy: 0.53, outerRx: 0.255, outerRy: 0.30,
+            innerCy: 0.518, innerRx: 0.20, innerRy: 0.24,
+            waterCy: 0.52, waterRx: 0.135, waterRy: 0.145,
+            drainY: 0.515, drainRx: 0.045, drainRy: 0.045
+        },
         tileColorA: '#475569',
         tileColorB: '#334155',
         porcelainTint: '#e2e8f0',
-        waterTint: 'rgba(37, 99, 235, 0.58)', // Classic blue porta-potty chemical water
+        waterTint: 'rgba(37, 99, 235, 0.58)',
         timeLimit: 85,
         skids: 14,
         crusts: 7,
@@ -1136,6 +1160,14 @@ const LEVELS = [
         id: 4,
         name: 'OP: TRUCK STOP LATRINE',
         env: 'INTERSTATE BIO-BOSS',
+        photoSrc: 'images/level4.jpg',
+        photoBgColor: '#36393b',
+        photoGeom: {
+            cx: 0.50, cy: 0.68, outerRx: 0.22, outerRy: 0.27,
+            innerCy: 0.67, innerRx: 0.165, innerRy: 0.225,
+            waterCy: 0.64, waterRx: 0.11, waterRy: 0.13,
+            drainY: 0.585, drainRx: 0.042, drainRy: 0.048
+        },
         tileColorA: '#3f3f46',
         tileColorB: '#27272a',
         porcelainTint: '#d6d3d1',
@@ -1150,6 +1182,24 @@ const LEVELS = [
     }
 ];
 
+// Photorealistic Environment Backdrop Image Preloader
+const SceneImages = {
+    cache: {},
+    preload() {
+        if (typeof Image === 'undefined') return;
+        LEVELS.forEach(lvl => {
+            if (!lvl.photoSrc || this.cache[lvl.id]) return;
+            const img = new Image();
+            img.src = lvl.photoSrc;
+            this.cache[lvl.id] = img;
+        });
+    },
+    get(levelId) {
+        const img = this.cache[levelId];
+        return (img && img.complete && img.naturalWidth > 0) ? img : null;
+    }
+};
+
 // ============================================================================
 // 3. CANVAS & STATE MANAGEMENT
 // ============================================================================
@@ -1159,16 +1209,22 @@ const ctx = canvas.getContext('2d');
 let width = window.innerWidth;
 let height = window.innerHeight;
 
-// Toilet Bowl Geometry (computed dynamically on resize)
+// Toilet Bowl Geometry (calibrated dynamically per level photograph on resize)
 const bowl = {
+    imgX: 0,
+    imgY: 0,
+    imgSize: 0,
     cx: 0,
     cy: 0,
     outerRx: 0,
     outerRy: 0,
+    innerCy: 0,
     innerRx: 0,
     innerRy: 0,
+    waterCy: 0,
     waterRx: 0,
     waterRy: 0,
+    drainY: 0,
     drainRx: 0,
     drainRy: 0,
     drainYOffset: 0
@@ -1216,6 +1272,7 @@ const state = {
     particles: [],
     ripples: [],
     sparkles: [],
+    lensDrops: [],
     floatingTexts: [],
     initialTotalHP: 1,
     screenShake: 0
@@ -1223,7 +1280,7 @@ const state = {
 
 function resizeCanvas() {
     const prevCx = bowl.cx;
-    const prevCy = bowl.cy;
+    const prevInnerCy = bowl.innerCy || bowl.cy;
     const prevRx = bowl.innerRx;
     const prevRy = bowl.innerRy;
 
@@ -1234,41 +1291,48 @@ function resizeCanvas() {
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    const lvl = LEVELS[state.levelIndex] || LEVELS[0];
+    const g = lvl.photoGeom;
+
     const isMobilePortrait = width < 640 && height >= width;
-    const topReserved = width < 640 ? 92 : 84;
+    const topReserved = width < 640 ? 90 : 84;
     const bottomReserved = width < 640 ? 136 : 88;
     const availH = Math.max(180, height - topReserved - bottomReserved);
 
-    bowl.cx = width * 0.5;
-    bowl.cy = topReserved + availH * 0.54;
+    const targetOuterRx = isMobilePortrait ? width * 0.45 : Math.min(width * 0.36, availH * 0.40);
+    const targetOuterRy = availH * 0.45;
+    bowl.imgSize = Math.min(targetOuterRx / g.outerRx, targetOuterRy / g.outerRy);
 
-    if (isMobilePortrait) {
-        bowl.outerRx = Math.min(width * 0.46, availH * 0.355);
-        bowl.outerRy = bowl.outerRx * 1.18;
-    } else {
-        const minDim = Math.min(width * 0.88, availH * 0.88);
-        bowl.outerRx = minDim * 0.44;
-        bowl.outerRy = minDim * 0.52;
-    }
+    const targetBowlCy = topReserved + availH * 0.52;
+    bowl.imgX = width * 0.5 - g.cx * bowl.imgSize;
+    bowl.imgY = targetBowlCy - g.cy * bowl.imgSize;
 
-    bowl.innerRx = bowl.outerRx * 0.77;
-    bowl.innerRy = bowl.outerRy * 0.78;
+    bowl.cx = bowl.imgX + g.cx * bowl.imgSize;
+    bowl.cy = bowl.imgY + g.cy * bowl.imgSize;
+    bowl.outerRx = g.outerRx * bowl.imgSize;
+    bowl.outerRy = g.outerRy * bowl.imgSize;
 
-    bowl.waterRx = bowl.innerRx * 0.54;
-    bowl.waterRy = bowl.innerRy * 0.52;
+    bowl.innerCy = bowl.imgY + g.innerCy * bowl.imgSize;
+    bowl.innerRx = g.innerRx * bowl.imgSize;
+    bowl.innerRy = g.innerRy * bowl.imgSize;
 
-    bowl.drainRx = bowl.waterRx * 0.36;
-    bowl.drainRy = bowl.waterRy * 0.34;
-    bowl.drainYOffset = bowl.waterRy * 0.25;
+    bowl.waterCy = bowl.imgY + g.waterCy * bowl.imgSize;
+    bowl.waterRx = g.waterRx * bowl.imgSize;
+    bowl.waterRy = g.waterRy * bowl.imgSize;
+
+    bowl.drainY = bowl.imgY + g.drainY * bowl.imgSize;
+    bowl.drainRx = g.drainRx * bowl.imgSize;
+    bowl.drainRy = g.drainRy * bowl.imgSize;
+    bowl.drainYOffset = bowl.drainY - bowl.cy;
 
     // Proportionally reposition active stains, floaters, powerups & sparkles on viewport resize/rotation
     if (prevRx > 0 && prevRy > 0 && bowl.innerRx > 0) {
         const scale = bowl.innerRx / prevRx;
         const mapPoint = obj => {
             const nx = (obj.x - prevCx) / prevRx;
-            const ny = (obj.y - prevCy) / prevRy;
+            const ny = (obj.y - prevInnerCy) / prevRy;
             obj.x = bowl.cx + nx * bowl.innerRx;
-            obj.y = bowl.cy + ny * bowl.innerRy;
+            obj.y = bowl.innerCy + ny * bowl.innerRy;
         };
         state.stains.forEach(s => {
             mapPoint(s);
@@ -1709,7 +1773,7 @@ function pointInEllipse(px, py, cx, cy, rx, ry) {
 
 function getNormalizedBowlRadius(px, py) {
     const dx = (px - bowl.cx) / bowl.innerRx;
-    const dy = (py - bowl.cy) / bowl.innerRy;
+    const dy = (py - bowl.innerCy) / bowl.innerRy;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
@@ -1719,7 +1783,7 @@ function spawnHydrationBubble() {
     state.powerups.push({
         type: 'bubble',
         x: bowl.cx + Math.cos(angle) * bowl.waterRx * rNorm,
-        y: bowl.cy - bowl.waterRy * 0.1 + Math.sin(angle) * bowl.waterRy * rNorm,
+        y: bowl.waterCy + Math.sin(angle) * bowl.waterRy * rNorm,
         radius: 13,
         hp: 18,
         maxHp: 18,
@@ -1734,25 +1798,26 @@ function spawnLevelEntities(level) {
     state.particles = [];
     state.ripples = [];
     state.sparkles = [];
+    state.lensDrops = [];
     state.floatingTexts = [];
 
-    // Helper to pick random position on the porcelain slope (between water edge and inner rim)
+    // Helper to pick random position on the porcelain slope (strictly between water edge and inner rim)
     function randomSlopePos() {
-        for (let attempt = 0; attempt < 40; attempt++) {
+        for (let attempt = 0; attempt < 60; attempt++) {
             const angle = Math.random() * Math.PI * 2;
-            // Normalized radius between 0.58 (just outside water) and 0.92 (just under rim)
-            const rNorm = 0.58 + Math.random() * 0.34;
+            const rNorm = 0.56 + Math.random() * 0.36;
             const x = bowl.cx + Math.cos(angle) * bowl.innerRx * rNorm;
-            const y = bowl.cy + Math.sin(angle) * bowl.innerRy * rNorm;
+            const y = bowl.innerCy + Math.sin(angle) * bowl.innerRy * rNorm;
 
-            // Ensure not overlapping existing stains too closely
-            const tooClose = state.stains.some(s => Math.hypot(s.x - x, s.y - y) < 34);
+            const inWaterPool = pointInEllipse(x, y, bowl.cx, bowl.waterCy, bowl.waterRx * 1.03, bowl.waterRy * 1.03);
+            if (inWaterPool) continue;
+            const tooClose = state.stains.some(s => Math.hypot(s.x - x, s.y - y) < 30);
             if (!tooClose) return { x, y };
         }
         const angle = Math.random() * Math.PI * 2;
         return {
-            x: bowl.cx + Math.cos(angle) * bowl.innerRx * 0.74,
-            y: bowl.cy + Math.sin(angle) * bowl.innerRy * 0.74
+            x: bowl.cx + Math.cos(angle) * bowl.innerRx * 0.84,
+            y: bowl.innerCy + Math.sin(angle) * bowl.innerRy * 0.84
         };
     }
 
@@ -1837,7 +1902,7 @@ function spawnLevelEntities(level) {
     for (let i = 0; i < level.floaters; i++) {
         const angle = (i / Math.max(1, totalFloaters)) * Math.PI * 2 + 0.6;
         const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.48);
-        const fy = bowl.cy - bowl.waterRy * 0.25 + Math.sin(angle) * (bowl.waterRy * 0.35);
+        const fy = bowl.waterCy + Math.sin(angle) * (bowl.waterRy * 0.42);
         state.floaters.push({
             x: fx,
             y: fy,
@@ -1855,8 +1920,8 @@ function spawnLevelEntities(level) {
 
     for (let i = 0; i < (level.clusterFloaters || 0); i++) {
         const angle = ((level.floaters + i) / Math.max(1, totalFloaters)) * Math.PI * 2 + 1.1;
-        const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.52);
-        const fy = bowl.cy - bowl.waterRy * 0.22 + Math.sin(angle) * (bowl.waterRy * 0.38);
+        const fx = bowl.cx + Math.cos(angle) * (bowl.waterRx * 0.50);
+        const fy = bowl.waterCy + Math.sin(angle) * (bowl.waterRy * 0.44);
         state.floaters.push({
             x: fx,
             y: fy,
@@ -1904,6 +1969,8 @@ function openBriefing(levelIdx) {
     state.screen = 'BRIEFING';
     state.isFiring = false;
     state.isTouchCanvasActive = false;
+    state.lensDrops = [];
+    resizeCanvas();
     updateFireButtonVisual(false);
     sfx.updateStreamSound(false, 'none', 1);
 
@@ -1963,6 +2030,7 @@ function startMission() {
     state.bubbleRespawnTimer = 0;
     state.score = state.missionStartScore;
 
+    resizeCanvas();
     spawnLevelEntities(lvl);
 
     // Update UI Badges
@@ -2325,11 +2393,11 @@ function update(dt) {
 
         // Constrain floater inside water ellipse
         const wdx = (f.x - bowl.cx) / (bowl.waterRx - f.radius * 0.6);
-        const wdy = (f.y - bowl.cy) / (bowl.waterRy - f.radius * 0.6);
+        const wdy = (f.y - bowl.waterCy) / (bowl.waterRy - f.radius * 0.6);
         const wDist = Math.hypot(wdx, wdy);
         if (wDist > 1.0) {
             f.x = bowl.cx + (wdx / wDist) * (bowl.waterRx - f.radius * 0.6);
-            f.y = bowl.cy + (wdy / wDist) * (bowl.waterRy - f.radius * 0.6);
+            f.y = bowl.waterCy + (wdy / wDist) * (bowl.waterRy - f.radius * 0.6);
             f.vx *= -0.5;
             f.vy *= -0.5;
         }
@@ -2361,6 +2429,25 @@ function update(dt) {
         }
     });
 
+    // Update camera-lens splash droplets when splashback rises
+    const targetDrops = state.splashback > 10 ? Math.min(22, Math.floor((state.splashback - 8) / 4)) : 0;
+    if (state.lensDrops.length < targetDrops && Math.random() < 0.35) {
+        state.lensDrops.push({
+            x: Math.random() * width,
+            y: Math.random() * height * 0.85,
+            r: 4 + Math.random() * 11,
+            vy: 4 + Math.random() * 14,
+            alpha: 0.45 + Math.random() * 0.35
+        });
+    }
+    for (let i = state.lensDrops.length - 1; i >= 0; i--) {
+        const d = state.lensDrops[i];
+        d.y += d.vy * dt;
+        if (d.y - d.r > height || state.lensDrops.length > targetDrops + 3) {
+            state.lensDrops.splice(i, 1);
+        }
+    }
+
     // Firing stream logic
     let hitSurface = 'none';
     if (state.isFiring && state.bladder > 0) {
@@ -2370,8 +2457,8 @@ function update(dt) {
         const ay = state.aimY;
 
         const inOuter = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.outerRx, bowl.outerRy);
-        const inInner = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.innerRx, bowl.innerRy);
-        const inWater = pointInEllipse(ax, ay, bowl.cx, bowl.cy, bowl.waterRx, bowl.waterRy);
+        const inInner = pointInEllipse(ax, ay, bowl.cx, bowl.innerCy, bowl.innerRx, bowl.innerRy);
+        const inWater = pointInEllipse(ax, ay, bowl.cx, bowl.waterCy, bowl.waterRx, bowl.waterRy);
 
         let hitAnyTarget = false;
 
@@ -2671,132 +2758,167 @@ function updateHUD() {
 }
 
 // ============================================================================
-// 9. RENDERING ENGINE (Bathroom Tiles, 3D-Perspective Bowl, Stains, Stream)
+// 9. PHOTOREALISTIC RENDERING ENGINE (DSLR Backdrops, Caustics, Wet Fluid, 3D Relief)
 // ============================================================================
 function drawBathroomTiles(lvl) {
-    const tileSize = 64;
-    const cols = Math.ceil(width / tileSize) + 1;
-    const rows = Math.ceil(height / tileSize) + 1;
+    const bgColor = lvl.photoBgColor || lvl.tileColorB;
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, width, height);
 
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            const isAlt = (r + c) % 2 === 0;
-            ctx.fillStyle = isAlt ? lvl.tileColorA : lvl.tileColorB;
-            ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
-
-            // Subtle grout lines
-            ctx.strokeStyle = 'rgba(15, 23, 42, 0.25)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize);
-        }
-    }
-
-    // Bathroom floor shadow under toilet base
+    // Subtle procedural tile grid outside the photo bounds for seamless extension
+    const tileSize = Math.max(56, Math.round(bowl.imgSize * 0.21));
+    const offsetX = bowl.imgX % tileSize;
+    const offsetY = bowl.imgY % tileSize;
     ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(bowl.cx, bowl.cy + 26, bowl.outerRx * 0.96, bowl.outerRy * 0.98, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
-    ctx.fill();
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.16)';
+    ctx.lineWidth = 2;
+    for (let x = offsetX - tileSize; x < width + tileSize; x += tileSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+    }
+    for (let y = offsetY - tileSize; y < height + tileSize; y += tileSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+    }
     ctx.restore();
+
+    const photo = SceneImages.get(lvl.id);
+    if (photo) {
+        ctx.drawImage(photo, bowl.imgX, bowl.imgY, bowl.imgSize, bowl.imgSize);
+
+        // Soft feathered edge blend into surrounding floor tiles so there is never a hard seam
+        const feather = Math.max(24, bowl.imgSize * 0.09);
+        const x0 = bowl.imgX;
+        const y0 = bowl.imgY;
+        const x1 = bowl.imgX + bowl.imgSize;
+        const y1 = bowl.imgY + bowl.imgSize;
+
+        if (x0 > 0) {
+            const gL = ctx.createLinearGradient(x0, 0, x0 + feather, 0);
+            gL.addColorStop(0, bgColor);
+            gL.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gL;
+            ctx.fillRect(x0 - 2, y0 - 2, feather + 4, bowl.imgSize + 4);
+        }
+        if (x1 < width) {
+            const gR = ctx.createLinearGradient(x1, 0, x1 - feather, 0);
+            gR.addColorStop(0, bgColor);
+            gR.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gR;
+            ctx.fillRect(x1 - feather - 2, y0 - 2, feather + 4, bowl.imgSize + 4);
+        }
+        if (y0 > 0) {
+            const gT = ctx.createLinearGradient(0, y0, 0, y0 + feather);
+            gT.addColorStop(0, bgColor);
+            gT.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gT;
+            ctx.fillRect(x0 - 2, y0 - 2, bowl.imgSize + 4, feather + 4);
+        }
+        if (y1 < height) {
+            const gB = ctx.createLinearGradient(0, y1, 0, y1 - feather);
+            gB.addColorStop(0, bgColor);
+            gB.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gB;
+            ctx.fillRect(x0 - 2, y1 - feather - 2, bowl.imgSize + 4, feather + 4);
+        }
+
+        // Subtle overhead bathroom ambient lighting falloff
+        const ambGrad = ctx.createRadialGradient(bowl.cx, bowl.innerCy, bowl.outerRx * 0.5, bowl.cx, bowl.innerCy, Math.max(width, height) * 0.78);
+        ambGrad.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+        ambGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0.04)');
+        ambGrad.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
+        ctx.fillStyle = ambGrad;
+        ctx.fillRect(0, 0, width, height);
+    } else {
+        // Fallback bathroom floor shadow while photo is loading
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(bowl.cx, bowl.cy + 26, bowl.outerRx * 0.96, bowl.outerRy * 0.98, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+        ctx.fill();
+        ctx.restore();
+    }
 }
 
 function drawToiletBowl(lvl) {
-    const { cx, cy, outerRx, outerRy, innerRx, innerRy, waterRx, waterRy, drainRx, drainRy, drainYOffset } = bowl;
+    const { cx, cy, outerRx, outerRy, innerCy, innerRx, innerRy, waterCy, waterRx, waterRy, drainY, drainRx, drainRy } = bowl;
+    const hasPhoto = Boolean(SceneImages.get(lvl.id));
 
-    // 1. Toilet Tank (Top rear perspective)
-    ctx.save();
-    const tankW = outerRx * 1.48;
-    const tankH = outerRy * 0.42;
-    const tankX = cx - tankW / 2;
-    const tankY = cy - outerRy - tankH * 0.58;
-
-    ctx.fillStyle = lvl.porcelainTint;
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(tankX, tankY, tankW, tankH, 16);
-    ctx.fill();
-    ctx.stroke();
-
-    // Flush Chrome Handle on left of tank
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(tankX - 16, tankY + tankH * 0.35, 18, 9);
-    ctx.restore();
-
-    // 2. Outer Ceramic Bowl & Raised Seat
-    ctx.save();
-    const outerGrad = ctx.createRadialGradient(cx - outerRx * 0.2, cy - outerRy * 0.2, innerRx * 0.6, cx, cy, outerRx * 1.05);
-    outerGrad.addColorStop(0, lvl.porcelainTint);
-    outerGrad.addColorStop(0.82, '#e2e8f0');
-    outerGrad.addColorStop(1, '#94a3b8');
-
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, outerRx, outerRy, 0, 0, Math.PI * 2);
-    ctx.fillStyle = outerGrad;
-    ctx.fill();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#64748b';
-    ctx.stroke();
-
-    // Seat inner lip bevel
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, innerRx + 6, innerRy + 6, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
-    ctx.lineWidth = 5;
-    ctx.stroke();
-    ctx.restore();
-
-    // 3. Inner Porcelain Basin (3D Slope Shading)
-    ctx.save();
-    const basinGrad = ctx.createRadialGradient(cx, cy + innerRy * 0.12, waterRx * 0.4, cx, cy, innerRx);
-    basinGrad.addColorStop(0, '#f8fafc');
-    basinGrad.addColorStop(0.65, '#e2e8f0');
-    basinGrad.addColorStop(0.92, '#cbd5e1');
-    basinGrad.addColorStop(1, '#64748b'); // Deep under-rim shadow
-
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, innerRx, innerRy, 0, 0, Math.PI * 2);
-    ctx.fillStyle = basinGrad;
-    ctx.fill();
-    ctx.restore();
-
-    // 4. Water Basin Pool
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, waterRx, waterRy, 0, 0, Math.PI * 2);
-    ctx.fillStyle = lvl.waterTint;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.5)';
-    ctx.stroke();
-
-    // 5. Central Siphon Drain Hole
-    const drainY = cy + drainYOffset;
-    const drainGrad = ctx.createRadialGradient(cx, drainY, 2, cx, drainY, drainRx);
-    drainGrad.addColorStop(0, '#0f172a');
-    drainGrad.addColorStop(0.75, '#1e293b');
-    drainGrad.addColorStop(1, 'rgba(30, 41, 59, 0.1)');
-
-    ctx.beginPath();
-    ctx.ellipse(cx, drainY, drainRx, drainRy, 0, 0, Math.PI * 2);
-    ctx.fillStyle = drainGrad;
-    ctx.fill();
-
-    // Water Surface Specular Highlight
-    ctx.beginPath();
-    ctx.ellipse(cx - waterRx * 0.32, cy - waterRy * 0.28, waterRx * 0.22, waterRy * 0.12, -0.3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.fill();
-
-    // Tactical Flush Swirling Vortex Visual
-    if (state.flushAnimTimer > 0) {
-        const alpha = Math.min(0.75, state.flushAnimTimer * 0.5);
-        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+    if (!hasPhoto) {
+        // Procedural fallback while photo loads
+        ctx.save();
+        const outerGrad = ctx.createRadialGradient(cx - outerRx * 0.2, cy - outerRy * 0.2, innerRx * 0.6, cx, cy, outerRx * 1.05);
+        outerGrad.addColorStop(0, lvl.porcelainTint);
+        outerGrad.addColorStop(0.82, '#e2e8f0');
+        outerGrad.addColorStop(1, '#94a3b8');
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, outerRx, outerRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = outerGrad;
+        ctx.fill();
         ctx.lineWidth = 4;
-        for (let ring = 1; ring <= 3; ring++) {
+        ctx.strokeStyle = '#64748b';
+        ctx.stroke();
+
+        const basinGrad = ctx.createRadialGradient(cx, innerCy + innerRy * 0.12, waterRx * 0.4, cx, innerCy, innerRx);
+        basinGrad.addColorStop(0, '#f8fafc');
+        basinGrad.addColorStop(0.65, '#e2e8f0');
+        basinGrad.addColorStop(1, '#64748b');
+        ctx.beginPath();
+        ctx.ellipse(cx, innerCy, innerRx, innerRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = basinGrad;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, waterCy, waterRx, waterRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = lvl.waterTint;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(cx, drainY, drainRx, drainRy, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Real-time animated water caustics, surface sheen & swirling flush vortex clipped to water pool
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, waterCy, waterRx, waterRy, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Subtle undulating caustic light ribbons on the real photographed water
+    const causticShift = Math.sin(state.elapsed * 1.6) * waterRx * 0.12;
+    const causticShiftY = Math.cos(state.elapsed * 1.2) * waterRy * 0.08;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2.5;
+    for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.ellipse(
+            cx + causticShift + k * waterRx * 0.14,
+            waterCy + causticShiftY + k * waterRy * 0.1,
+            waterRx * (0.45 + k * 0.12),
+            waterRy * (0.38 - k * 0.06),
+            state.elapsed * 0.25 + k,
+            0,
+            Math.PI * 1.3
+        );
+        ctx.stroke();
+    }
+
+    // Specular water shimmer glint
+    const glintAlpha = 0.16 + Math.sin(state.elapsed * 2.4) * 0.06;
+    ctx.beginPath();
+    ctx.ellipse(cx - waterRx * 0.26 + causticShift * 0.4, waterCy - waterRy * 0.22, waterRx * 0.22, waterRy * 0.09, -0.35, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${glintAlpha})`;
+    ctx.fill();
+
+    // Tactical Flush Swirling Foamy Vortex Visual
+    if (state.flushAnimTimer > 0) {
+        const alpha = Math.min(0.85, state.flushAnimTimer * 0.55);
+        for (let ring = 1; ring <= 4; ring++) {
             ctx.beginPath();
-            const rot = state.elapsed * 9 + ring;
-            ctx.arc(cx, cy, (innerRx * 0.25) * ring, rot, rot + Math.PI * 1.35);
+            const rot = state.elapsed * 11 + ring * 1.4;
+            ctx.strokeStyle = ring % 2 === 0 ? `rgba(255, 255, 255, ${alpha * 0.7})` : `rgba(56, 189, 248, ${alpha})`;
+            ctx.lineWidth = 3.5 + ring * 0.8;
+            ctx.arc(cx, waterCy, (waterRx * 0.24) * ring, rot, rot + Math.PI * 1.35);
             ctx.stroke();
         }
     }
@@ -2804,7 +2926,7 @@ function drawToiletBowl(lvl) {
 }
 
 function drawStainsAndFloaters() {
-    // 1. Draw Stains (Surface Skids, Baked-On Crust & Slime Streaks)
+    // 1. Draw Photorealistic Organic Stains (Wet Skids, 3D Relief Crust & Glossy Slime)
     state.stains.forEach(s => {
         const hpRatio = Math.max(0.15, s.hp / s.maxHp);
         ctx.save();
@@ -2812,52 +2934,79 @@ function drawStainsAndFloaters() {
         ctx.rotate(s.angle);
 
         if (s.type === 'skid') {
-            // Surface Skid: shrinks and fades as it dissolves
-            ctx.globalAlpha = 0.4 + hpRatio * 0.6;
+            ctx.globalAlpha = 0.38 + hpRatio * 0.56;
             const scale = 0.55 + hpRatio * 0.45;
             ctx.scale(scale, scale);
 
+            // Soft feathered wet smear halo
             s.blobs.forEach(b => {
+                const grad = ctx.createRadialGradient(b.ox, b.oy, b.r * 0.12, b.ox, b.oy, b.r * 1.15);
+                grad.addColorStop(0, 'rgba(69, 26, 3, 0.92)');
+                grad.addColorStop(0.55, 'rgba(113, 63, 18, 0.72)');
+                grad.addColorStop(1, 'rgba(120, 53, 15, 0)');
                 ctx.beginPath();
-                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
-                ctx.fillStyle = '#713f12';
+                ctx.arc(b.ox, b.oy, b.r * 1.15, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
                 ctx.fill();
             });
-            // Darker center smear
+            // Wet porcelain specular glint on smear
             ctx.beginPath();
-            ctx.arc(0, 0, s.radius * 0.42, 0, Math.PI * 2);
-            ctx.fillStyle = '#451a03';
+            ctx.ellipse(-s.radius * 0.18, -s.radius * 0.16, s.radius * 0.24, s.radius * 0.1, -0.4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 248, 220, 0.22)';
             ctx.fill();
         } else if (s.type === 'slime') {
-            // Toxic regenerating Slime Streak
-            ctx.globalAlpha = 0.5 + hpRatio * 0.5;
-            const scale = 0.6 + hpRatio * 0.4;
+            ctx.globalAlpha = 0.55 + hpRatio * 0.42;
+            const scale = 0.62 + hpRatio * 0.38;
             ctx.scale(scale, scale);
 
+            // Contact shadow on porcelain
             s.blobs.forEach(b => {
                 ctx.beginPath();
-                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
-                ctx.fillStyle = '#4d7c0f';
+                ctx.arc(b.ox + 2, b.oy + 2.5, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(15, 23, 5, 0.35)';
                 ctx.fill();
-                ctx.lineWidth = 1.5;
-                ctx.strokeStyle = '#a3e635';
-                ctx.stroke();
             });
-        } else {
-            // Baked-On Crust: heavy armored jagged dark-brown/ochre cluster + mini armor bar
+            // Translucent glistening bio-slime body
             s.blobs.forEach(b => {
+                const grad = ctx.createRadialGradient(b.ox - b.r * 0.25, b.oy - b.r * 0.25, b.r * 0.1, b.ox, b.oy, b.r);
+                grad.addColorStop(0, 'rgba(163, 230, 53, 0.85)');
+                grad.addColorStop(0.55, 'rgba(77, 124, 15, 0.88)');
+                grad.addColorStop(1, 'rgba(54, 83, 20, 0.92)');
                 ctx.beginPath();
                 ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
-                ctx.fillStyle = '#3f1d0b';
+                ctx.fillStyle = grad;
                 ctx.fill();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = '#78350f';
+            });
+            // Glossy wet highlight
+            ctx.beginPath();
+            ctx.ellipse(-s.radius * 0.15, -s.radius * 0.28, s.radius * 0.26, s.radius * 0.12, -0.3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(236, 252, 203, 0.55)';
+            ctx.fill();
+        } else {
+            // Baked-On Crust: 3D contact shadow + rough textured relief + cracks
+            s.blobs.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.ox + 2.5, b.oy + 3, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(10, 5, 2, 0.42)';
+                ctx.fill();
+            });
+            s.blobs.forEach(b => {
+                const grad = ctx.createRadialGradient(b.ox - b.r * 0.25, b.oy - b.r * 0.25, b.r * 0.1, b.ox, b.oy, b.r);
+                grad.addColorStop(0, '#78350f');
+                grad.addColorStop(0.6, '#451a03');
+                grad.addColorStop(1, '#270e02');
+                ctx.beginPath();
+                ctx.arc(b.ox, b.oy, b.r, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                ctx.lineWidth = 1.2;
+                ctx.strokeStyle = 'rgba(146, 64, 14, 0.55)';
                 ctx.stroke();
             });
 
             // Crack lines when damaged
             if (hpRatio < 0.75) {
-                ctx.strokeStyle = '#fbbf24';
+                ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(-s.radius * 0.5, -s.radius * 0.2);
@@ -2882,45 +3031,74 @@ function drawStainsAndFloaters() {
         ctx.restore();
     });
 
-    // 1B. Draw In-Bowl Tactical Power-Ups (Urinal Cake Bomb & Hydration Bubble)
+    // 1B. Draw Photorealistic In-Bowl Tactical Power-Ups (Urinal Cake Bomb & Hydration Bubble)
     state.powerups.forEach(p => {
-        const pulse = 1 + Math.sin(p.phase) * 0.08;
+        const pulse = 1 + Math.sin(p.phase) * 0.06;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.scale(pulse, pulse);
 
         if (p.type === 'cake') {
+            // Realistic drop shadow
+            ctx.beginPath();
+            ctx.arc(2.5, 3.5, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 15, 35, 0.38)';
+            ctx.fill();
+
+            // Translucent 3D cobalt deodorizer puck
+            const cakeGrad = ctx.createRadialGradient(-p.radius * 0.3, -p.radius * 0.3, 2, 0, 0, p.radius);
+            cakeGrad.addColorStop(0, '#7dd3fc');
+            cakeGrad.addColorStop(0.45, '#0284c7');
+            cakeGrad.addColorStop(1, '#0c4a6e');
             ctx.beginPath();
             ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-            ctx.fillStyle = '#0284c7';
+            ctx.fillStyle = cakeGrad;
             ctx.fill();
-            ctx.lineWidth = 2.5;
-            ctx.strokeStyle = '#7dd3fc';
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)';
             ctx.stroke();
 
-            ctx.font = 'bold 12px "Share Tech Mono", monospace';
+            // Specular highlight arc
+            ctx.beginPath();
+            ctx.arc(-p.radius * 0.15, -p.radius * 0.15, p.radius * 0.62, Math.PI * 1.05, Math.PI * 1.65);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.font = 'bold 11px "Share Tech Mono", monospace';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillStyle = '#ffffff';
             ctx.fillText('💣', 0, 1);
         } else {
+            // Refractive iridescent Hydration Bubble
+            const bubGrad = ctx.createRadialGradient(-p.radius * 0.3, -p.radius * 0.3, 1, 0, 0, p.radius);
+            bubGrad.addColorStop(0, 'rgba(255, 255, 255, 0.65)');
+            bubGrad.addColorStop(0.35, 'rgba(125, 211, 252, 0.25)');
+            bubGrad.addColorStop(0.8, 'rgba(56, 189, 248, 0.32)');
+            bubGrad.addColorStop(1, 'rgba(224, 242, 254, 0.85)');
             ctx.beginPath();
             ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.32)';
+            ctx.fillStyle = bubGrad;
             ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#bae6fd';
+            ctx.lineWidth = 1.4;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
             ctx.stroke();
 
+            // Crisp dual glass specular dots
             ctx.beginPath();
-            ctx.arc(-p.radius * 0.32, -p.radius * 0.32, p.radius * 0.25, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.ellipse(-p.radius * 0.34, -p.radius * 0.34, p.radius * 0.26, p.radius * 0.14, -0.7, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p.radius * 0.32, p.radius * 0.32, p.radius * 0.1, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(186, 230, 253, 0.8)';
             ctx.fill();
         }
         ctx.restore();
     });
 
-    // 2. Draw Floaters (Normal & Giant Cluster Floaters in basin water)
+    // 2. Draw Photorealistic 3D-Shaded Floaters (Submerged Shadow, Meniscus & Wet Sheen)
     state.floaters.forEach(f => {
         if (f.sunk) return;
         const bobOffset = Math.sin(f.bobPhase) * 2.5;
@@ -2928,26 +3106,42 @@ function drawStainsAndFloaters() {
         ctx.translate(f.x, f.y + bobOffset);
         ctx.rotate(f.angle);
 
-        // Water wake ring around floater
+        // Submerged contact shadow on water floor below
         ctx.beginPath();
-        ctx.ellipse(0, 0, f.radius * 1.45, f.radius * 0.9, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = f.isCluster ? 'rgba(251, 146, 60, 0.7)' : 'rgba(255, 255, 255, 0.45)';
-        ctx.lineWidth = f.isCluster ? 2 : 1.5;
-        ctx.stroke();
-
-        // Capsule/Log silhouette
-        ctx.beginPath();
-        ctx.roundRect(-f.radius * 1.1, -f.radius * 0.55, f.radius * 2.2, f.radius * 1.1, 8);
-        ctx.fillStyle = f.isCluster ? '#451a03' : '#5c2d16';
+        ctx.ellipse(4, 7, f.radius * 1.15, f.radius * 0.58, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
         ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = f.isCluster ? '#fb923c' : '#291206';
+
+        // Subtle water surface meniscus ring
+        ctx.beginPath();
+        ctx.ellipse(0, 0, f.radius * 1.38, f.radius * 0.82, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = f.isCluster ? 'rgba(251, 146, 60, 0.55)' : 'rgba(255, 255, 255, 0.38)';
+        ctx.lineWidth = f.isCluster ? 1.8 : 1.2;
         ctx.stroke();
 
-        // Highlight ridge
+        // 3D cylindrical radial shaded organic body
+        const bodyGrad = ctx.createLinearGradient(0, -f.radius * 0.6, 0, f.radius * 0.6);
+        if (f.isCluster) {
+            bodyGrad.addColorStop(0, '#9a3412');
+            bodyGrad.addColorStop(0.45, '#5c240c');
+            bodyGrad.addColorStop(1, '#240b03');
+        } else {
+            bodyGrad.addColorStop(0, '#854d27');
+            bodyGrad.addColorStop(0.5, '#5c2d16');
+            bodyGrad.addColorStop(1, '#291206');
+        }
         ctx.beginPath();
-        ctx.roundRect(-f.radius * 0.7, -f.radius * 0.25, f.radius * 1.4, f.radius * 0.28, 4);
-        ctx.fillStyle = f.isCluster ? '#9a3412' : '#854d27';
+        ctx.roundRect(-f.radius * 1.1, -f.radius * 0.55, f.radius * 2.2, f.radius * 1.1, f.radius * 0.55);
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = f.isCluster ? 'rgba(251, 146, 60, 0.85)' : 'rgba(28, 12, 4, 0.75)';
+        ctx.stroke();
+
+        // Wet specular highlight streak along top ridge
+        ctx.beginPath();
+        ctx.roundRect(-f.radius * 0.75, -f.radius * 0.35, f.radius * 1.5, f.radius * 0.22, 6);
+        ctx.fillStyle = 'rgba(255, 245, 225, 0.28)';
         ctx.fill();
 
         if (f.isCluster) {
@@ -2970,8 +3164,8 @@ function drawRipplesAndParticles() {
         ctx.save();
         ctx.beginPath();
         ctx.ellipse(r.x, r.y, r.r * 1.2, r.r * 0.85, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = `${r.color || 'rgba(224, 242, 254,'} ${r.alpha})`;
-        ctx.lineWidth = r.speed ? 4 : 2;
+        ctx.strokeStyle = `${r.color || 'rgba(255, 255, 255,'} ${r.alpha * 0.75})`;
+        ctx.lineWidth = r.speed ? 4 : 1.8;
         ctx.stroke();
         ctx.restore();
     });
@@ -2983,7 +3177,7 @@ function drawRipplesAndParticles() {
         ctx.save();
         ctx.translate(sp.x, sp.y);
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = '#fef08a';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
         ctx.moveTo(-s, 0); ctx.lineTo(s, 0);
@@ -2992,7 +3186,7 @@ function drawRipplesAndParticles() {
         ctx.restore();
     });
 
-    // Splash Particles
+    // Splash Particles (glistening micro-droplets with specular dot)
     state.particles.forEach(p => {
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
@@ -3000,6 +3194,12 @@ function drawRipplesAndParticles() {
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
+        if (p.r > 2.2) {
+            ctx.beginPath();
+            ctx.arc(p.x - p.r * 0.3, p.y - p.r * 0.3, p.r * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.fill();
+        }
         ctx.restore();
     });
 }
@@ -3008,7 +3208,7 @@ function drawLiquidStreamAndReticle() {
     const drink = DRINK_LOADOUTS[state.selectedDrink];
     const isOvercharged = state.isFiring && state.kegelBurstTimer > 0;
 
-    // Draw Liquid Arc Stream when firing
+    // Draw Photorealistic Volumetric Liquid Stream when firing
     if (state.screen === 'PLAYING' && state.isFiring && state.bladder > 0) {
         const startX = width * 0.5 + Math.sin(state.elapsed * 2.0) * 14;
         const startY = height + 20;
@@ -3022,26 +3222,59 @@ function drawLiquidStreamAndReticle() {
         ctx.save();
         ctx.lineCap = 'round';
 
-        // Outer Glow Stream
+        // 1. Cast shadow on porcelain/floor beneath the stream arc
+        ctx.beginPath();
+        ctx.moveTo(startX + 12, startY + 12);
+        ctx.quadraticCurveTo(ctrlX + 16, ctrlY + 26, endX + 4, endY + 5);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+        ctx.lineWidth = (10 + drink.pressure * 2.5) * (isOvercharged ? 1.25 : 1);
+        ctx.stroke();
+
+        // 2. Translucent Volumetric Fluid Envelope
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
-        ctx.strokeStyle = isOvercharged ? 'rgba(34, 211, 238, 0.85)' : drink.colorGlow;
-        ctx.lineWidth = (14 + drink.pressure * 3) * (isOvercharged ? 1.35 : 1);
+        ctx.strokeStyle = isOvercharged ? 'rgba(34, 211, 238, 0.72)' : drink.colorGlow;
+        ctx.lineWidth = (13 + drink.pressure * 3) * (isOvercharged ? 1.35 : 1);
         ctx.stroke();
 
-        // Inner High-Velocity Core Stream
+        // 3. Inner Liquid Core
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.quadraticCurveTo(ctrlX, ctrlY, endX, endY);
         ctx.strokeStyle = isOvercharged ? '#ecfeff' : drink.colorCore;
-        ctx.lineWidth = (5 + drink.pressure * 1.5) * (isOvercharged ? 1.3 : 1);
+        ctx.lineWidth = (5.5 + drink.pressure * 1.4) * (isOvercharged ? 1.25 : 1);
         ctx.stroke();
 
-        // Impact Splash Ring
+        // 4. Specular Refractive Highlight Thread along upper arc edge
         ctx.beginPath();
-        ctx.arc(endX, endY, (7 + Math.random() * 5) * (isOvercharged ? 1.4 : 1), 0, Math.PI * 2);
-        ctx.fillStyle = isOvercharged ? '#22d3ee' : drink.colorCore;
+        ctx.moveTo(startX - 2, startY - 2);
+        ctx.quadraticCurveTo(ctrlX - 2, ctrlY - 3, endX - 1, endY - 1);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 5. High-velocity airborne micro-droplet beads along the quadratic curve
+        for (let b = 0; b < 5; b++) {
+            const t = ((state.elapsed * 4.5 + b * 0.2) % 1);
+            const inv = 1 - t;
+            const bx = inv * inv * startX + 2 * inv * t * ctrlX + t * t * endX + (Math.random() - 0.5) * 8;
+            const by = inv * inv * startY + 2 * inv * t * ctrlY + t * t * endY + (Math.random() - 0.5) * 8;
+            ctx.beginPath();
+            ctx.arc(bx, by, 1.8 + (1 - t) * 2.2, 0, Math.PI * 2);
+            ctx.fillStyle = isOvercharged ? 'rgba(224, 242, 254, 0.85)' : 'rgba(255, 255, 255, 0.65)';
+            ctx.fill();
+        }
+
+        // 6. Foamy Impact Splash & Glistening Crown
+        const splashR = (8 + Math.random() * 5) * (isOvercharged ? 1.4 : 1);
+        const splashGrad = ctx.createRadialGradient(endX, endY, 1, endX, endY, splashR);
+        splashGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        splashGrad.addColorStop(0.55, isOvercharged ? 'rgba(34, 211, 238, 0.8)' : drink.colorCore);
+        splashGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.beginPath();
+        ctx.arc(endX, endY, splashR, 0, Math.PI * 2);
+        ctx.fillStyle = splashGrad;
         ctx.fill();
         ctx.restore();
     }
@@ -3123,6 +3356,36 @@ function drawLiquidStreamAndReticle() {
     }
 }
 
+function drawLensDrops() {
+    if (state.lensDrops.length === 0) return;
+    state.lensDrops.forEach(d => {
+        ctx.save();
+        ctx.globalAlpha = d.alpha;
+        // Drop rim shadow on glass
+        ctx.beginPath();
+        ctx.ellipse(d.x, d.y + 1.5, d.r, d.r * 1.15, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(10, 20, 30, 0.22)';
+        ctx.fill();
+
+        // Refractive translucent droplet body
+        const grad = ctx.createRadialGradient(d.x - d.r * 0.25, d.y - d.r * 0.25, 1, d.x, d.y, d.r * 1.15);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+        grad.addColorStop(0.55, 'rgba(224, 242, 254, 0.14)');
+        grad.addColorStop(1, 'rgba(186, 230, 253, 0.45)');
+        ctx.beginPath();
+        ctx.ellipse(d.x, d.y, d.r, d.r * 1.15, 0, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Bright top-left highlight glint
+        ctx.beginPath();
+        ctx.arc(d.x - d.r * 0.32, d.y - d.r * 0.35, Math.max(1.2, d.r * 0.22), 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+        ctx.restore();
+    });
+}
+
 function drawFloatingTexts() {
     state.floatingTexts.forEach(ft => {
         ctx.save();
@@ -3156,6 +3419,7 @@ function render() {
     drawFloatingTexts();
 
     ctx.restore();
+    drawLensDrops();
 }
 
 // ============================================================================
@@ -3447,6 +3711,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
 
 // Initialize on Window Load
 window.onload = function () {
+    SceneImages.preload();
     DrillSergeant.preload();
     GameMusic.tryStart();
     const savedName = LeaderboardManager.getSavedCallsign();

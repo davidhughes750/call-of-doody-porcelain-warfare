@@ -8,6 +8,7 @@ A single-file HTML5 Canvas tactical sanitation arcade game featuring procedural 
 
 ## Features
 
+- **Photorealistic Visual Overhaul**: Custom top-down photorealistic toilet/bathroom environments (`images/level1.jpg`–`level4.jpg`) with pixel-calibrated bowl/water/drain hitboxes, real-time animated water caustics, volumetric cast-shadow liquid stream with airborne micro-droplets, 3D-shaded organic targets, and refractive camera-lens splash droplets.
 - **Operative Callsign Prompt**: Enter your callsign on the home briefing screen before deploying (saved automatically across sessions).
 - **Persistent Global Leaderboard & Operative Ranks**: Tracks top personal-best scores per unique operative (1 row per player with rank badge `PVT`–`GEN` and total plays badge) alongside live global mission/operative counters on both the home briefing screen and mission debrief report.
 - **In-Bowl Power-Ups & Kegel Overcharge**: Pop **Urinal Cake Bombs** for a `-25%` splashback foam shockwave, pop **Hydration Bubbles** for `+20%` tank refills, and hold off fire for `2s` to unleash a `2.2x` **Kegel Overcharge** burst with FPS hit-markers and debrief medals.
