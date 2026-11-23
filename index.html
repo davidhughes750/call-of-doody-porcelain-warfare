@@ -173,6 +173,47 @@
         .animate-pulse-fast {
             animation: pulse-fast 0.8s infinite;
         }
+
+        /* Cinematic Title Splash Screen */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            background-color: #060a08;
+            overflow: hidden;
+            transition: opacity 0.55s ease, transform 0.55s ease;
+            cursor: pointer;
+        }
+        #splash-screen.splash-exiting {
+            opacity: 0;
+            transform: scale(1.04);
+            pointer-events: none;
+        }
+        @keyframes splash-ken-burns {
+            0% { transform: scale(1.0); }
+            100% { transform: scale(1.08); }
+        }
+        .splash-bg-img {
+            animation: splash-ken-burns 18s ease-in-out infinite alternate;
+        }
+        @keyframes splash-cta-glow {
+            0%, 100% {
+                box-shadow: 0 4px 0 #0b140d, 0 0 22px rgba(74, 222, 128, 0.45), inset 0 0 12px rgba(74, 222, 128, 0.18);
+            }
+            50% {
+                box-shadow: 0 4px 0 #0b140d, 0 0 38px rgba(74, 222, 128, 0.8), inset 0 0 18px rgba(74, 222, 128, 0.35);
+            }
+        }
+        .splash-cta-btn {
+            animation: splash-cta-glow 2.2s ease-in-out infinite;
+        }
+        .splash-title-text {
+            background: linear-gradient(180deg, #f8fafc 0%, #86efac 48%, #22c55e 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.95)) drop-shadow(0 0 24px rgba(34, 197, 94, 0.35));
+        }
     </style>
 </head>
 <body>
@@ -285,8 +326,68 @@
         </div>
     </div>
 
+    <!-- TITLE SPLASH SCREEN (SHOWN ON INITIAL LOAD) -->
+    <div id="splash-screen" role="dialog" aria-label="Call of Doody: Porcelain Warfare Title Screen">
+        <img
+            src="images/splash.jpg"
+            alt="Call of Doody: Porcelain Warfare Key Art"
+            class="splash-bg-img absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none"
+        />
+        <!-- Dramatic Vignette & Readability Scrim -->
+        <div
+            class="absolute inset-0 pointer-events-none"
+            style="background: linear-gradient(180deg, rgba(4, 8, 6, 0.86) 0%, rgba(4, 8, 6, 0.34) 36%, rgba(4, 8, 6, 0.24) 62%, rgba(4, 8, 6, 0.94) 100%);"
+        ></div>
+        <div class="scanlines opacity-60"></div>
+
+        <!-- Splash Content Layout -->
+        <div
+            class="relative z-10 w-full h-full flex flex-col justify-between items-center text-center px-4 sm:px-6"
+            style="padding-top: max(1.75rem, calc(env(safe-area-inset-top) + 1.25rem)); padding-bottom: max(1.75rem, calc(env(safe-area-inset-bottom) + 1.25rem));"
+        >
+            <!-- Top Title Block -->
+            <div class="flex flex-col items-center max-w-4xl w-full">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/65 border border-amber-400/50 text-[10px] sm:text-xs text-amber-300 tracking-[0.22em] uppercase font-bold mb-2.5 sm:mb-3 backdrop-blur-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-fast"></span>
+                    SANITATION COMMAND // PHOTOREALISTIC EDITION
+                </div>
+                <h1 class="stencil-font splash-title-text text-5xl sm:text-7xl md:text-8xl leading-[0.95] tracking-wider">
+                    CALL OF DOODY
+                </h1>
+                <div class="flex items-center justify-center gap-3 sm:gap-4 mt-2 sm:mt-3 w-full max-w-xl">
+                    <span class="h-[2px] flex-1 bg-gradient-to-r from-transparent via-amber-400/80 to-amber-400"></span>
+                    <span class="stencil-font text-base sm:text-2xl md:text-3xl text-amber-300 tracking-[0.26em] drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] whitespace-nowrap">
+                        PORCELAIN WARFARE
+                    </span>
+                    <span class="h-[2px] flex-1 bg-gradient-to-l from-transparent via-amber-400/80 to-amber-400"></span>
+                </div>
+            </div>
+
+            <!-- Bottom Action Block (Keeps Center Toilet Hero Art Unobstructed) -->
+            <div class="flex flex-col items-center gap-2.5 sm:gap-3 w-full max-w-lg">
+                <button
+                    id="btn-splash-enter"
+                    type="button"
+                    class="tac-btn splash-cta-btn px-8 sm:px-12 py-3.5 sm:py-4 rounded-lg stencil-font text-lg sm:text-2xl tracking-[0.14em] w-full sm:w-auto"
+                >
+                    ▶ ENTER MISSION BRIEFING
+                </button>
+                <div class="text-[11px] sm:text-xs text-emerald-300/90 tracking-[0.18em] uppercase font-bold drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]">
+                    TAP ANYWHERE OR PRESS ENTER • 🔊 AUDIO &amp; MUSIC READY
+                </div>
+                <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] sm:text-[11px] text-slate-300/85 uppercase tracking-wider bg-black/55 border border-emerald-500/25 rounded-full px-3.5 py-1 backdrop-blur-sm">
+                    <span>🚽 4 MISSIONS</span>
+                    <span class="text-emerald-500">•</span>
+                    <span>📻 GNY. SGT. HARTMAN</span>
+                    <span class="text-emerald-500">•</span>
+                    <span>🏆 GLOBAL LEADERBOARD</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: MISSION BRIEFING & TACTICAL HYDRATION LOADOUT -->
-    <div id="modal-briefing" class="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2.5 sm:p-3 overflow-y-auto" style="padding-top: max(0.65rem, env(safe-area-inset-top)); padding-bottom: max(0.65rem, env(safe-area-inset-bottom));">
+    <div id="modal-briefing" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2.5 sm:p-3 overflow-y-auto" style="padding-top: max(0.65rem, env(safe-area-inset-top)); padding-bottom: max(0.65rem, env(safe-area-inset-bottom));">
         <div class="hud-panel max-w-2xl w-full p-3.5 sm:p-6 border-2 border-emerald-500/60 my-auto">
             <div class="flex items-center justify-between border-b border-emerald-500/30 pb-2.5 sm:pb-3 mb-3 sm:mb-4">
                 <div>
@@ -1232,7 +1333,7 @@ const bowl = {
 
 // Game State
 const state = {
-    screen: 'BRIEFING', // BRIEFING, PLAYING, DEBRIEF
+    screen: 'SPLASH', // SPLASH, BRIEFING, PLAYING, DEBRIEF
     levelIndex: 0,
     playerName: '',
     lastSubmittedId: null,
@@ -3595,8 +3696,13 @@ if (typeof document.addEventListener === 'function') {
     });
 }
 
-// Spacebar to fire / F to Flush
+// Spacebar to fire / F to Flush / Enter or Space to dismiss Splash
 window.addEventListener('keydown', e => {
+    if (state.screen === 'SPLASH' && (e.code === 'Enter' || e.code === 'Space')) {
+        e.preventDefault();
+        dismissSplash();
+        return;
+    }
     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
         return;
     }
@@ -3709,6 +3815,34 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
     openBriefing(nextIdx);
 });
 
+// Splash Screen Dismissal & Audio Unlock
+function dismissSplash() {
+    if (state.screen !== 'SPLASH') return;
+    sfx.init();
+    sfx.playPop(540);
+    GameMusic.tryStart();
+    openBriefing(0);
+    const splashEl = document.getElementById('splash-screen');
+    if (splashEl) {
+        splashEl.classList.add('splash-exiting');
+        setTimeout(() => {
+            splashEl.classList.add('hidden');
+        }, 560);
+    }
+}
+
+const splashScreenEl = document.getElementById('splash-screen');
+if (splashScreenEl) {
+    splashScreenEl.addEventListener('click', dismissSplash);
+}
+const splashEnterBtn = document.getElementById('btn-splash-enter');
+if (splashEnterBtn) {
+    splashEnterBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        dismissSplash();
+    });
+}
+
 // Initialize on Window Load
 window.onload = function () {
     SceneImages.preload();
@@ -3719,7 +3853,8 @@ window.onload = function () {
         nameInputEl.value = savedName;
         state.playerName = savedName;
     }
-    openBriefing(0);
+    // Pre-sync leaderboard in background while player views title splash
+    LeaderboardManager.syncLeaderboard();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 };
